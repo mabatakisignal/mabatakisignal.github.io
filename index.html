@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Mabataki Signal — 画面点滅テキスト通信</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#171c24; --panel2:#1f2630; --fg:#e6edf3; --dim:#8b98a5;
+    --accent:#4da3ff; --ok:#3fb950; --warn:#d29922; --err:#f85149; --border:#2b3440;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;}
+  header{padding:14px 16px 6px;}
+  header h1{margin:0; font-size:20px; letter-spacing:.5px;}
+  header p{margin:4px 0 0; color:var(--dim); font-size:12px;}
+  .tabs{display:flex; gap:8px; padding:12px 16px 0;}
+  .tabs button{flex:1; padding:10px 0; font-size:15px; border:1px solid var(--border);
+    background:var(--panel); color:var(--dim); border-radius:10px 10px 0 0; cursor:pointer;}
+  .tabs button.active{background:var(--panel2); color:var(--fg); border-bottom-color:var(--panel2); font-weight:600;}
+  main{padding:0 16px 40px;}
+  .panel{background:var(--panel2); border:1px solid var(--border); border-radius:0 0 12px 12px; padding:14px;}
+  .hidden{display:none !important;}
+  label{font-size:13px; color:var(--dim); display:block; margin:10px 0 4px;}
+  textarea{width:100%; min-height:80px; background:var(--panel); color:var(--fg);
+    border:1px solid var(--border); border-radius:8px; padding:10px; font-size:15px; resize:vertical;}
+  select,input[type=range]{width:100%;}
+  select{background:var(--panel); color:var(--fg); border:1px solid var(--border);
+    border-radius:8px; padding:9px; font-size:14px;}
+  .row{display:flex; gap:12px; align-items:center;}
+  .row>div{flex:1;}
+  .btn{display:block; width:100%; padding:13px; margin-top:14px; font-size:16px; font-weight:600;
+    border:none; border-radius:10px; cursor:pointer; background:var(--accent); color:#04121f;}
+  .btn:disabled{opacity:.45; cursor:default;}
+  .btn.stop{background:var(--err); color:#fff;}
+  .meta{font-size:12px; color:var(--dim); margin-top:8px; line-height:1.7;}
+  .check{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px;}
+  .check input{width:18px; height:18px;}
+  details{margin-top:14px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px;}
+  details summary{cursor:pointer; font-size:13px; color:var(--accent);}
+  details ul{margin:8px 0 2px; padding-left:18px; font-size:12.5px; color:var(--dim); line-height:1.8;}
+  /* 送信フラッシュ画面 */
+  #flash{position:fixed; inset:0; z-index:100; background:#000; display:none;
+    align-items:flex-end; justify-content:center; cursor:pointer;}
+  #flash.on{display:flex;}
+  #flashInfo{margin-bottom:26px; padding:6px 14px; border-radius:20px; background:rgba(0,0,0,.55);
+    color:#9aa; font-size:12px; pointer-events:none; mix-blend-mode:difference;}
+  /* 受信 */
+  #camWrap{position:relative; width:100%; background:#000; border-radius:10px; overflow:hidden; margin-top:6px;}
+  #camWrap video{width:100%; display:block;}
+  #roiCanvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
+  #wave{width:100%; height:74px; background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; margin-top:10px; display:block;}
+  .status{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px;}
+  .dot{width:10px; height:10px; border-radius:50%; background:var(--dim); flex:none;}
+  .dot.idle{background:var(--dim);} .dot.signal{background:var(--warn);}
+  .dot.lock{background:var(--accent);} .dot.rx{background:var(--ok); animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.35;}}
+  #msgs{margin-top:12px;}
+  .msg{background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--ok);
+    border-radius:8px; padding:10px 12px; margin-top:8px; font-size:15px; word-break:break-all;}
+  .msg .time{font-size:11px; color:var(--dim); margin-top:4px;}
+  .msg.bad{border-left-color:var(--err);}
+  .small{font-size:12px; color:var(--dim);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>👁 Mabataki Signal</h1>
+  <p>画面のまばたきで送る可視光テキスト通信 — 全画面1画素・時間方向輝度変調</p>
+</header>
+
+<div class="tabs">
+  <button id="tabTx" class="active">📤 送信</button>
+  <button id="tabRx">📥 受信</button>
+</div>
+
+<main>
+  <!-- ===== 送信 ===== -->
+  <section id="txPanel" class="panel">
+    <label>送信テキスト(UTF-8・最大255バイト)</label>
+    <textarea id="txText" placeholder="ここに送信する文字列を入力">こんにちは</textarea>
+    <div class="row">
+      <div>
+        <label>ビットレート</label>
+        <select id="txRate">
+          <option value="2">2 bps(最遠距離・最堅牢)</option>
+          <option value="5" selected>5 bps(推奨)</option>
+          <option value="10">10 bps(近距離)</option>
+          <option value="15">15 bps(至近・要60fpsカメラ)</option>
+        </select>
+      </div>
+    </div>
+    <div class="check"><input type="checkbox" id="txLoop" checked><span>繰り返し送信(受信失敗時のリトライに有効)</span></div>
+    <div class="meta" id="txEstimate"></div>
+    <button class="btn" id="txStart">全画面で送信開始</button>
+    <details>
+      <summary>📡 距離を伸ばすための送信側チェックリスト</summary>
+      <ul>
+        <li><b>画面輝度を最大</b>にし、<b>自動輝度をOFF</b>にする(ブラウザからは制御できません)</li>
+        <li><b>OLED端末が有利</b>:黒=画素消灯でコントラスト比がほぼ無限大。LCDは黒が浮くため不利</li>
+        <li>ダークモードの自動減光・省電力モード・ナイトシフトを切る</li>
+        <li>直射日光下は画面がコントラスト負けします。<b>夕方以降〜夜間が本領</b></li>
+        <li>画面を受信カメラへ正対させ、送信中は動かさない</li>
+        <li>遠距離ほど低ビットレートに(2bps推奨)</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- ===== 受信 ===== -->
+  <section id="rxPanel" class="panel hidden">
+    <button class="btn" id="rxStart">カメラを起動</button>
+    <div id="camWrap" class="hidden">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="roiCanvas"></canvas>
+    </div>
+    <div id="rxControls" class="hidden">
+      <label>ROIサイズ(枠をドラッグで移動/送信画面が枠内に収まるよう調整)</label>
+      <input type="range" id="roiSize" min="6" max="60" value="25">
+      <div id="zoomRow" class="hidden">
+        <label>カメラズーム(遠距離時はズームで送信画面を大きく捉える)</label>
+        <input type="range" id="zoom" min="1" max="8" step="0.1" value="1">
+      </div>
+      <canvas id="wave" width="600" height="74"></canvas>
+      <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
+      <div class="small" id="camInfo"></div>
+      <div id="msgs"></div>
+      <button class="btn stop" id="rxStop">カメラ停止</button>
+    </div>
+    <details>
+      <summary>📷 受信のコツ</summary>
+      <ul>
+        <li>白い枠(ROI)の中に送信画面だけが入るように、枠の位置・サイズとズームを調整</li>
+        <li>カメラは三脚等で<b>固定</b>する。手ブレは誤検出の主因</li>
+        <li>波形グラフで明滅がはっきり2値に分かれていれば受信可能圏内</li>
+        <li>露出固定はブラウザ・機種依存です(対応時は自動で試行)。効かなくても差分検出で動作します</li>
+        <li>受信側のビットレート設定は不要(プリアンブルから自動検出)</li>
+      </ul>
+    </details>
+  </section>
+</main>
+
+<!-- 全画面フラッシュ -->
+<div id="flash"><div id="flashInfo">送信準備中…</div></div>
+
+<script>
+/* ================================================================
+ * ==== MABATAKI SIGNAL CORE BEGIN ====
+ * プロトコル層+復調器。DOM非依存(Nodeでの単体テスト可能)。
+ * 将来ESP32+LED送信機へ移植する場合もこの層をそのまま流用する。
+ *
+ * フレーム構成(ビット列, MSBファースト):
+ *   [プリアンブル 24bit: 101010...] [同期語 16bit: 0x2DD4]
+ *   [FEC符号化フレーム: (LEN 1B + PAYLOAD + CRC16 2B) を
+ *    Hamming(8,4) SECDED でニブル毎に1バイト化 → 各バイト2バイト]
+ * 変調: マンチェスター符号 (1 = 暗→明, 0 = 明→暗)。
+ * ================================================================ */
+const FC = (() => {
+  'use strict';
+
+  const PREAMBLE_BITS = 24;              // 1,0 繰り返し
+  const SYNC = 0x2DD4;                   // 16bit 同期語
+  const SYNC_BITS = 16;
+  const MAX_PAYLOAD = 255;
+
+  /* ---------- CRC-16/CCITT-FALSE ---------- */
+  function crc16(bytes) {
+    let crc = 0xFFFF;
+    for (const b of bytes) {
+      crc ^= b << 8;
+      for (let i = 0; i < 8; i++)
+        crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+    }
+    return crc;
+  }
+
+  /* ---------- Hamming(8,4) SECDED ---------- */
+  // Hamming(7,4): 符号語 [p1 p2 d1 p3 d2 d3 d4] + 全体パリティ → 8bit
+  const HAM_ENC = new Uint8Array(16);
+  const HAM_DEC = new Int8Array(256).fill(-1);
+  (function buildHamming() {
+    for (let n = 0; n < 16; n++) {
+      const d1 = (n >> 3) & 1, d2 = (n >> 2) & 1, d3 = (n >> 1) & 1, d4 = n & 1;
+      const p1 = d1 ^ d2 ^ d4, p2 = d1 ^ d3 ^ d4, p3 = d2 ^ d3 ^ d4;
+      let cw7 = (p1 << 6) | (p2 << 5) | (d1 << 4) | (p3 << 3) | (d2 << 2) | (d3 << 1) | d4;
+      let par = 0; for (let i = 0; i < 7; i++) par ^= (cw7 >> i) & 1;
+      HAM_ENC[n] = (cw7 << 1) | par;
+    }
+    // 距離1以内で最近傍復号(SECDED: 1bit訂正・2bit検出)
+    for (let v = 0; v < 256; v++) {
+      for (let n = 0; n < 16; n++) {
+        const d = popcount(v ^ HAM_ENC[n]);
+        if (d === 0) { HAM_DEC[v] = n; break; }
+        if (d === 1) { HAM_DEC[v] = n; /* 距離1は一意 */ break; }
+      }
+    }
+  })();
+  function popcount(x) { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; }
+
+  function fecEncode(bytes) {           // 各バイト → 2符号バイト(上位ニブル, 下位ニブル)
+    const out = new Uint8Array(bytes.length * 2);
+    for (let i = 0; i < bytes.length; i++) {
+      out[2 * i] = HAM_ENC[(bytes[i] >> 4) & 0xF];
+      out[2 * i + 1] = HAM_ENC[bytes[i] & 0xF];
+    }
+    return out;
+  }
+  function fecDecode(coded) {           // → {bytes, errors(訂正数), fatal(復号不能数)}
+    const n = coded.length >> 1;
+    const bytes = new Uint8Array(n);
+    let errors = 0, fatal = 0;
+    for (let i = 0; i < n; i++) {
+      let hi = HAM_DEC[coded[2 * i]], lo = HAM_DEC[coded[2 * i + 1]];
+      if (coded[2 * i] !== HAM_ENC[hi >= 0 ? hi : 0]) errors += (hi >= 0) ? 1 : 0;
+      if (coded[2 * i + 1] !== HAM_ENC[lo >= 0 ? lo : 0]) errors += (lo >= 0) ? 1 : 0;
+      if (hi < 0) { hi = 0; fatal++; }
+      if (lo < 0) { lo = 0; fatal++; }
+      bytes[i] = (hi << 4) | lo;
+    }
+    return { bytes, errors, fatal };
+  }
+
+  /* ---------- 送信ビット列の構築 ---------- */
+  function textToBytes(text) {
+    return (typeof TextEncoder !== 'undefined')
+      ? new TextEncoder().encode(text)
+      : Uint8Array.from(Buffer.from(text, 'utf8'));   // Nodeフォールバック
+  }
+  function bytesToText(bytes) {
+    return (typeof TextDecoder !== 'undefined')
+      ? new TextDecoder('utf-8', { fatal: false }).decode(bytes)
+      : Buffer.from(bytes).toString('utf8');
+  }
+
+  function buildFrameBits(text) {
+    const payload = textToBytes(text);
+    if (payload.length === 0) throw new Error('empty');
+    if (payload.length > MAX_PAYLOAD) throw new Error('payload too long: ' + payload.length);
+    const raw = new Uint8Array(1 + payload.length + 2);
+    raw[0] = payload.length;
+    raw.set(payload, 1);
+    const c = crc16(raw.subarray(0, 1 + payload.length));
+    raw[1 + payload.length] = (c >> 8) & 0xFF;
+    raw[2 + payload.length] = c & 0xFF;
+    const coded = fecEncode(raw);
+
+    const bits = [];
+    for (let i = 0; i < PREAMBLE_BITS; i++) bits.push(i % 2 === 0 ? 1 : 0);
+    for (let i = SYNC_BITS - 1; i >= 0; i--) bits.push((SYNC >> i) & 1);
+    for (const b of coded) for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1);
+    return bits;
+  }
+
+  // マンチェスター: 1=[暗,明] 0=[明,暗]。戻り値: ハーフビット毎の輝度レベル(0/1)
+  function bitsToHalfbits(bits) {
+    const hb = [];
+    for (const b of bits) { if (b) { hb.push(0, 1); } else { hb.push(1, 0); } }
+    return hb;
+  }
+
+  function estimateSeconds(text, bps) {
+    const nBytes = textToBytes(text).length;
+    const bits = PREAMBLE_BITS + SYNC_BITS + (1 + nBytes + 2) * 16;
+    return bits / bps + 1.4;   // リードイン/テール込み概算
+  }
+
+  /* ---------- 復調器 ----------
+   * feed(tMs, luma) を毎フレーム呼ぶだけ。ビットレートはプリアンブルから自動推定。
+   * onEvent({type:'status', state}), ({type:'message', text, errors, crcOk, tBit}) */
+  class Demodulator {
+    constructor(onEvent, opts = {}) {
+      this.onEvent = onEvent || (() => {});
+      this.WINDOW_MS = opts.windowMs || 1700;   // min/max追跡窓
+      this.MIN_CONTRAST = opts.minContrast || 10;
+      this.HYST = opts.hyst || 0.13;            // レンジ比ヒステリシス
+      this.T_MIN = 22, this.T_MAX = 620;        // 許容ビット周期(ms) ≒ 1.6〜22bps
+      this.LOCK_NEED = 8;                       // ロックに必要な等間隔エッジ数
+      this.reset();
+      this.samples = [];                        // 波形表示用 {t,l,bin}
+    }
+    reset() {
+      this.win = [];            // {t,l}
+      this.bin = -1;            // 現在の2値状態
+      this.lastCross = null;    // 補間用の直前サンプル
+      this.edges = [];          // ロック前のエッジ {t,dir}
+      this.state = 'no_signal'; // no_signal | idle | locked | frame
+      this.T = 0;               // ビット周期(ms)
+      this.lastMid = 0;         // 直近のミッドビットエッジ時刻
+      this.pendingBoundary = false;
+      this.bitBuf = [];
+      this.frameBits = null;
+      this.frameNeed = 0;
+      this._emitState();
+    }
+    _emitState() { this.onEvent({ type: 'status', state: this.state, tBit: this.T }); }
+    _setState(s) { if (s !== this.state) { this.state = s; this._emitState(); } }
+
+    feed(t, luma) {
+      // --- 適応閾値(移動min/max) ---
+      this.win.push({ t, l: luma });
+      while (this.win.length && t - this.win[0].t > this.WINDOW_MS) this.win.shift();
+      let mn = Infinity, mx = -Infinity;
+      for (const s of this.win) { if (s.l < mn) mn = s.l; if (s.l > mx) mx = s.l; }
+      const range = mx - mn;
+      this.range = range; this.thrMid = (mn + mx) / 2;
+
+      if (range < this.MIN_CONTRAST) {
+        if (this.state !== 'no_signal') this.reset();
+        this._pushSample(t, luma, this.bin);
+        return;
+      }
+      if (this.state === 'no_signal') this._setState('idle');
+
+      const hi = this.thrMid + range * this.HYST;
+      const lo = this.thrMid - range * this.HYST;
+      let newBin = this.bin;
+      if (this.bin !== 1 && luma > hi) newBin = 1;
+      else if (this.bin !== 0 && luma < lo) newBin = 0;
+      if (this.bin === -1) { this.bin = newBin === -1 ? (luma > this.thrMid ? 1 : 0) : newBin; this.lastCross = { t, l: luma }; this._pushSample(t, luma, this.bin); return; }
+
+      if (newBin !== this.bin) {
+        // 交差時刻を線形補間。ヒステリシス閾値ではなく中央値(thrMid)基準に
+        // することで、ステップ状エッジに対する系統的な時刻バイアスを除去する
+        const p = this.lastCross;
+        let tEdge = t;
+        if (p && p.l !== luma) {
+          const f = (this.thrMid - p.l) / (luma - p.l);
+          tEdge = p.t + Math.max(0, Math.min(1, f)) * (t - p.t);
+        }
+        this.bin = newBin;
+        this._onEdge(tEdge, newBin === 1 ? +1 : -1);
+      } else if (this.state === 'frame' || this.state === 'locked') {
+        // エッジ途絶タイムアウト
+        if (t - this.lastMid > this.T * 3) { this._abort(); }
+      }
+      this.lastCross = { t, l: luma };
+      this._pushSample(t, luma, this.bin);
+    }
+    _pushSample(t, l, bin) {
+      this.samples.push({ t, l, bin });
+      while (this.samples.length && t - this.samples[0].t > 4000) this.samples.shift();
+    }
+    _abort() {
+      this.edges = []; this.bitBuf = []; this.frameBits = null;
+      this.pendingBoundary = false; this.T = 0;
+      this._setState('idle');
+    }
+
+    _onEdge(t, dir) {
+      if (this.state === 'idle') {
+        this.edges.push({ t, dir });
+        if (this.edges.length > 40) this.edges.shift();
+        this._tryLock();
+        return;
+      }
+      if (this.state !== 'locked' && this.state !== 'frame') return;
+
+      const dt = t - this.lastMid;
+      const T = this.T;
+      // 不感帯なしの最近傍分類: 0.5T(境界) / 1.0T(ミッド) / それ以外は破綻
+      if (this.pendingBoundary) {
+        // 境界エッジの後 → 次はミッドビットエッジのはず
+        if (dt >= 0.72 * T && dt <= 1.45 * T) {
+          this.pendingBoundary = false;
+          this._midEdge(t, dir, dt);
+        } else if (dt < 0.72 * T) {
+          /* グリッチ: 無視(境界の後に境界は来ない) */
+        } else { this._abort(); }
+        return;
+      }
+      if (dt < 0.25 * T) {
+        /* グリッチとして無視 */
+      } else if (dt < 0.72 * T) {
+        this.pendingBoundary = true;                  // ビット境界エッジ
+      } else if (dt <= 1.45 * T) {
+        this._midEdge(t, dir, dt);                    // 次のミッドビット
+      } else {
+        this._abort();
+        this._onEdge(t, dir);                         // 新しい信号列として再評価
+      }
+    }
+    _midEdge(t, dir, dt) {
+      this.T = 0.85 * this.T + 0.15 * dt;             // クロック追従
+      this.lastMid = t;
+      this._pushBit(dir > 0 ? 1 : 0);
+    }
+
+    _tryLock() {
+      const e = this.edges;
+      const K = this.LOCK_NEED;
+      if (e.length < K + 1) return;
+      const tail = e.slice(-(K + 1));
+      const ivs = [];
+      for (let i = 1; i < tail.length; i++) {
+        ivs.push(tail[i].t - tail[i - 1].t);
+        if (tail[i].dir === tail[i - 1].dir) return;  // プリアンブルは方向交互
+      }
+      const sorted = [...ivs].sort((a, b) => a - b);
+      const med = sorted[sorted.length >> 1];
+      if (med < this.T_MIN || med > this.T_MAX) return;
+      for (const iv of ivs) if (Math.abs(iv - med) > 0.25 * med) return;
+      // ロック成立: エッジ間隔 = ビット周期T(プリアンブル10... はミッドビット遷移のみ)
+      this.T = med;
+      this.lastMid = tail[tail.length - 1].t;
+      this.pendingBoundary = false;
+      this.bitBuf = [];
+      // 直近エッジ自体もビット(向きで値が決まる)
+      this.bitBuf.push(tail[tail.length - 1].dir > 0 ? 1 : 0);
+      this.edges = [];
+      this._setState('locked');
+    }
+
+    _pushBit(b) {
+      if (this.state === 'locked') {
+        this.bitBuf.push(b);
+        if (this.bitBuf.length > 64) this.bitBuf.shift();
+        // 同期語検索(1bit誤り許容)
+        if (this.bitBuf.length >= SYNC_BITS) {
+          let v = 0;
+          const s = this.bitBuf.slice(-SYNC_BITS);
+          for (const bit of s) v = ((v << 1) | bit) & 0xFFFF;
+          if (popcount(v ^ SYNC) <= 1) {
+            this.frameBits = [];
+            this.frameNeed = 16;      // まずLENの符号化2バイト分
+            this._setState('frame');
+          }
+        }
+      } else if (this.state === 'frame') {
+        this.frameBits.push(b);
+        if (this.frameBits.length === 16 && this.frameNeed === 16) {
+          const lenByte = this._decodeBytes(this.frameBits.slice(0, 16));
+          const len = lenByte.bytes[0];
+          if (len < 1 || len > MAX_PAYLOAD) { this._abort(); return; }
+          this.frameNeed = (1 + len + 2) * 16;
+        }
+        if (this.frameNeed > 16 && this.frameBits.length >= this.frameNeed) {
+          this._finishFrame();
+        }
+      }
+    }
+    _decodeBytes(bits) {
+      const coded = new Uint8Array(bits.length >> 3);
+      for (let i = 0; i < coded.length; i++) {
+        let v = 0;
+        for (let j = 0; j < 8; j++) v = (v << 1) | bits[i * 8 + j];
+        coded[i] = v;
+      }
+      return fecDecode(coded);
+    }
+    _finishFrame() {
+      const dec = this._decodeBytes(this.frameBits);
+      const raw = dec.bytes;
+      const len = raw[0];
+      const payload = raw.subarray(1, 1 + len);
+      const gotCrc = (raw[1 + len] << 8) | raw[2 + len];
+      const crcOk = crc16(raw.subarray(0, 1 + len)) === gotCrc && dec.fatal === 0;
+      const text = bytesToText(payload);
+      this.onEvent({ type: 'message', text, crcOk, errors: dec.errors, fatal: dec.fatal, tBit: this.T });
+      this._abort();   // 次フレーム待ちへ
+    }
+  }
+
+  return { PREAMBLE_BITS, SYNC, SYNC_BITS, MAX_PAYLOAD,
+           crc16, fecEncode, fecDecode, HAM_ENC, HAM_DEC,
+           buildFrameBits, bitsToHalfbits, estimateSeconds,
+           textToBytes, bytesToText, Demodulator };
+})();
+if (typeof module !== 'undefined') module.exports = FC;
+/* ==== MABATAKI SIGNAL CORE END ==== */
+</script>
+
+<script>
+/* ================= UI層(ブラウザのみ) ================= */
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+
+/* ---- タブ ---- */
+$('tabTx').onclick = () => switchTab(true);
+$('tabRx').onclick = () => switchTab(false);
+function switchTab(tx) {
+  $('tabTx').classList.toggle('active', tx);
+  $('tabRx').classList.toggle('active', !tx);
+  $('txPanel').classList.toggle('hidden', !tx);
+  $('rxPanel').classList.toggle('hidden', tx);
+}
+
+/* ================= 送信 ================= */
+let txTimer = null, wakeLock = null;
+
+function updateEstimate() {
+  const text = $('txText').value;
+  const bps = +$('txRate').value;
+  try {
+    const n = FC.textToBytes(text).length;
+    if (n === 0) { $('txEstimate').textContent = ''; return; }
+    if (n > FC.MAX_PAYLOAD) { $('txEstimate').textContent = `⚠ ${n}バイト — 上限255バイトを超えています`; return; }
+    const s = FC.estimateSeconds(text, bps);
+    $('txEstimate').textContent = `${n}バイト / 1回の送信 約${s.toFixed(1)}秒`;
+  } catch (e) { $('txEstimate').textContent = ''; }
+}
+$('txText').oninput = updateEstimate;
+$('txRate').onchange = updateEstimate;
+updateEstimate();
+
+$('txStart').onclick = async () => {
+  const text = $('txText').value;
+  let bits;
+  try { bits = FC.buildFrameBits(text); }
+  catch (e) { alert(e.message === 'empty' ? 'テキストを入力してください' : '255バイト以内にしてください'); return; }
+
+  const bps = +$('txRate').value;
+  const halfT = 1000 / (2 * bps);
+  const hb = FC.bitsToHalfbits(bits);
+  const LEAD = Math.ceil(900 / halfT), TAIL = Math.ceil(600 / halfT), GAP = Math.ceil(1400 / halfT);
+  const loop = $('txLoop').checked;
+
+  const seq = [];
+  for (let i = 0; i < LEAD; i++) seq.push(0);
+  seq.push(...hb);
+  for (let i = 0; i < TAIL; i++) seq.push(0);
+  const gapLen = GAP;
+
+  const flash = $('flash'), info = $('flashInfo');
+  flash.classList.add('on');
+  try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) {}
+
+  const t0 = performance.now();
+  let cycle = 0, stopped = false;
+  const totalPerCycle = seq.length + gapLen;
+
+  function frame(now) {
+    if (stopped) return;
+    const elapsed = now - t0;
+    let idx = Math.floor(elapsed / halfT);
+    if (loop) { cycle = Math.floor(idx / totalPerCycle); idx = idx % totalPerCycle; }
+    if (idx >= seq.length) {
+      if (!loop && cycle === 0 && idx >= seq.length) {
+        if (idx >= seq.length + Math.min(gapLen, Math.ceil(500 / halfT))) { stopTx(); return; }
+      }
+      flash.style.background = '#000';
+      info.textContent = loop ? `送信完了 → ${((totalPerCycle - idx) * halfT / 1000).toFixed(0)}秒後に再送信(${cycle + 1}回目完了)/ タップで停止` : '送信完了';
+    } else {
+      flash.style.background = seq[idx] ? '#fff' : '#000';
+      const dataStart = LEAD, dataEnd = LEAD + hb.length;
+      if (idx < dataStart) info.textContent = '同期準備中… / タップで停止';
+      else if (idx < dataEnd) info.textContent = `送信中 ${Math.round((idx - dataStart) / hb.length * 100)}% / タップで停止`;
+      else info.textContent = '終端送信中 / タップで停止';
+    }
+    txTimer = requestAnimationFrame(frame);
+  }
+  txTimer = requestAnimationFrame(frame);
+
+  function stopTx() {
+    stopped = true;
+    cancelAnimationFrame(txTimer);
+    flash.classList.remove('on');
+    flash.style.background = '#000';
+    try { wakeLock?.release(); } catch (e) {}
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    flash.onclick = null;
+  }
+  flash.onclick = stopTx;
+};
+
+/* ================= 受信 ================= */
+let stream = null, track = null, rafId = null, usingRVFC = false;
+let roi = { x: 0.5, y: 0.5, size: 0.25 };   // 正規化座標(中心+一辺比率)
+const sampleCanvas = document.createElement('canvas');
+sampleCanvas.width = 8; sampleCanvas.height = 8;
+const sctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
+
+const demod = new FC.Demodulator(onDemodEvent);
+let lastMsg = { text: null, t: 0, el: null, count: 1 };
+
+function onDemodEvent(ev) {
+  if (ev.type === 'status') {
+    const dot = $('stDot'), st = $('stText');
+    dot.className = 'dot';
+    if (ev.state === 'no_signal') { dot.classList.add('idle'); st.textContent = '待機中(信号なし/コントラスト不足)'; }
+    else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = '信号検出 — 同期待ち'; }
+    else if (ev.state === 'locked') { dot.classList.add('lock'); st.textContent = `同期確立(${(1000 / ev.tBit).toFixed(1)} bps)— データ待ち`; }
+    else if (ev.state === 'frame') { dot.classList.add('rx'); st.textContent = '受信中…'; }
+  } else if (ev.type === 'message') {
+    const now = Date.now();
+    if (ev.crcOk && ev.text === lastMsg.text && now - lastMsg.t < 8000 && lastMsg.el) {
+      lastMsg.count++; lastMsg.t = now;
+      lastMsg.el.querySelector('.time').textContent = timeStamp() + ` ・ ${lastMsg.count}回受信`;
+      return;
+    }
+    const div = document.createElement('div');
+    div.className = 'msg' + (ev.crcOk ? '' : ' bad');
+    const head = ev.crcOk
+      ? (ev.errors > 0 ? `✅ 受信成功(FECで${ev.errors}ビット訂正)` : '✅ 受信成功')
+      : `⚠ チェックサム不一致(参考表示)`;
+    div.innerHTML = `<div class="small">${head}</div><div></div><div class="time"></div>`;
+    div.children[1].textContent = ev.text;
+    div.querySelector('.time').textContent = timeStamp();
+    $('msgs').prepend(div);
+    if (ev.crcOk) lastMsg = { text: ev.text, t: now, el: div, count: 1 };
+  }
+}
+function timeStamp() { return new Date().toLocaleTimeString('ja-JP'); }
+
+$('rxStart').onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, frameRate: { ideal: 60 } },
+      audio: false
+    });
+  } catch (e) { alert('カメラを起動できませんでした: ' + e.message); return; }
+  const video = $('video');
+  video.srcObject = stream;
+  track = stream.getVideoTracks()[0];
+  $('rxStart').classList.add('hidden');
+  $('camWrap').classList.remove('hidden');
+  $('rxControls').classList.remove('hidden');
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) {}
+
+  await new Promise(r => video.onloadedmetadata = r);
+  setupRoiCanvas();
+  applyCameraTuning();
+  startSampling();
+};
+
+$('rxStop').onclick = () => {
+  stopSampling();
+  stream?.getTracks().forEach(t => t.stop());
+  stream = null; track = null;
+  $('rxStart').classList.remove('hidden');
+  $('camWrap').classList.add('hidden');
+  $('rxControls').classList.add('hidden');
+  demod.reset();
+  try { wakeLock?.release(); } catch (e) {}
+};
+
+async function applyCameraTuning() {
+  if (!track) return;
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  const notes = [];
+  const settings = track.getSettings ? track.getSettings() : {};
+  notes.push(`${settings.width || '?'}×${settings.height || '?'} @${settings.frameRate ? Math.round(settings.frameRate) : '?'}fps`);
+  // 露出固定の試行(機種依存・失敗しても差分検出で動作)
+  try {
+    if (caps.exposureMode && caps.exposureMode.includes('manual')) {
+      await track.applyConstraints({ advanced: [{ exposureMode: 'manual' }] });
+      notes.push('露出固定: 成功');
+    } else if (caps.exposureCompensation) {
+      notes.push('露出固定: 非対応(露出補正のみ対応)');
+    } else {
+      notes.push('露出固定: 非対応(差分検出で動作)');
+    }
+  } catch (e) { notes.push('露出固定: 失敗(差分検出で動作)'); }
+  if (caps.zoom && caps.zoom.max > caps.zoom.min) {
+    const z = $('zoom');
+    z.min = caps.zoom.min; z.max = caps.zoom.max;
+    z.step = caps.zoom.step || 0.1; z.value = settings.zoom || caps.zoom.min;
+    $('zoomRow').classList.remove('hidden');
+    z.oninput = () => track.applyConstraints({ advanced: [{ zoom: +z.value }] }).catch(() => {});
+  }
+  $('camInfo').textContent = notes.join(' / ');
+}
+
+/* ---- ROI 操作 ---- */
+function setupRoiCanvas() {
+  const rc = $('roiCanvas'), video = $('video');
+  function resize() {
+    rc.width = rc.clientWidth * devicePixelRatio;
+    rc.height = rc.clientHeight * devicePixelRatio;
+  }
+  resize();
+  new ResizeObserver(resize).observe(rc);
+
+  let dragging = false;
+  const pos = ev => {
+    const r = rc.getBoundingClientRect();
+    const p = ev.touches ? ev.touches[0] : ev;
+    return { x: (p.clientX - r.left) / r.width, y: (p.clientY - r.top) / r.height };
+  };
+  const down = ev => { dragging = true; move(ev); ev.preventDefault(); };
+  const move = ev => {
+    if (!dragging) return;
+    const p = pos(ev);
+    roi.x = Math.max(0.05, Math.min(0.95, p.x));
+    roi.y = Math.max(0.05, Math.min(0.95, p.y));
+    ev.preventDefault();
+  };
+  const up = () => dragging = false;
+  rc.addEventListener('pointerdown', down);
+  rc.addEventListener('pointermove', move);
+  rc.addEventListener('pointerup', up);
+  rc.addEventListener('pointercancel', up);
+  $('roiSize').oninput = () => roi.size = +$('roiSize').value / 100;
+  roi.size = +$('roiSize').value / 100;
+}
+
+function drawRoiOverlay(luma) {
+  const rc = $('roiCanvas');
+  const ctx = rc.getContext('2d');
+  ctx.clearRect(0, 0, rc.width, rc.height);
+  const w = rc.width, h = rc.height;
+  const s = roi.size * Math.min(w, h);
+  const x = roi.x * w - s / 2, y = roi.y * h - s / 2;
+  ctx.strokeStyle = demod.state === 'frame' ? '#3fb950' : '#fff';
+  ctx.lineWidth = 2 * devicePixelRatio;
+  ctx.strokeRect(x, y, s, s);
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.font = `${11 * devicePixelRatio}px sans-serif`;
+  ctx.fillText(`輝度 ${luma.toFixed(0)}`, x + 4 * devicePixelRatio, y - 6 * devicePixelRatio < 10 ? y + s + 14 * devicePixelRatio : y - 6 * devicePixelRatio);
+}
+
+/* ---- サンプリングループ ---- */
+function sampleLuma(video) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw) return null;
+  const s = roi.size * Math.min(vw, vh);
+  const sx = Math.max(0, roi.x * vw - s / 2), sy = Math.max(0, roi.y * vh - s / 2);
+  sctx.drawImage(video, sx, sy, s, s, 0, 0, 8, 8);
+  const d = sctx.getImageData(0, 0, 8, 8).data;
+  let sum = 0;
+  for (let i = 0; i < d.length; i += 4) sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+  return sum / 64;
+}
+
+function startSampling() {
+  const video = $('video');
+  usingRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
+  const onFrame = (now, meta) => {
+    if (!stream) return;
+    const t = meta ? meta.mediaTime * 1000 : performance.now();
+    const luma = sampleLuma(video);
+    if (luma !== null) {
+      demod.feed(t, luma);
+      drawRoiOverlay(luma);
+      drawWave();
+    }
+    if (usingRVFC) video.requestVideoFrameCallback(onFrame);
+    else rafId = requestAnimationFrame(() => onFrame(performance.now(), null));
+  };
+  if (usingRVFC) video.requestVideoFrameCallback(onFrame);
+  else rafId = requestAnimationFrame(() => onFrame(performance.now(), null));
+}
+function stopSampling() { if (rafId) cancelAnimationFrame(rafId); rafId = null; }
+
+/* ---- 波形表示 ---- */
+function drawWave() {
+  const cv = $('wave'), ctx = cv.getContext('2d');
+  const S = demod.samples;
+  ctx.fillStyle = '#171c24'; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (S.length < 2) return;
+  const t1 = S[S.length - 1].t, t0 = t1 - 4000;
+  const X = t => (t - t0) / 4000 * cv.width;
+  const Y = l => cv.height - 4 - (l / 255) * (cv.height - 8);
+  // 閾値ライン
+  if (demod.range >= demod.MIN_CONTRAST) {
+    ctx.strokeStyle = '#2b3440'; ctx.beginPath();
+    ctx.moveTo(0, Y(demod.thrMid)); ctx.lineTo(cv.width, Y(demod.thrMid)); ctx.stroke();
+  }
+  ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 1.5; ctx.beginPath();
+  let first = true;
+  for (const s of S) {
+    if (s.t < t0) continue;
+    if (first) { ctx.moveTo(X(s.t), Y(s.l)); first = false; }
+    else ctx.lineTo(X(s.t), Y(s.l));
+  }
+  ctx.stroke();
+}
+})();
+</script>
+</body>
+</html>
