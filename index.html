@@ -50,8 +50,15 @@
   #camWrap{position:relative; width:100%; background:#000; border-radius:10px; overflow:hidden; margin-top:6px;}
   #camWrap video{width:100%; display:block;}
   #roiCanvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
-  #wave{width:100%; height:74px; background:var(--panel); border:1px solid var(--border);
-    border-radius:8px; margin-top:10px; display:block;}
+  #wave{width:100%; height:120px; background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; margin-top:6px; display:block;}
+  /* 診断パネル */
+  .diag{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px;}
+  .diag>div{background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:7px 4px; text-align:center;}
+  .diag .dv{display:block; font-size:18px; font-weight:700; color:var(--fg); line-height:1.1;}
+  .diag .dl{display:block; font-size:10px; color:var(--dim); margin-top:3px;}
+  .diag .good{color:var(--ok);} .diag .warn{color:var(--warn);} .diag .bad{color:var(--err);}
   .status{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px;}
   .dot{width:10px; height:10px; border-radius:50%; background:var(--dim); flex:none;}
   .dot.idle{background:var(--dim);} .dot.signal{background:var(--warn);}
@@ -86,8 +93,8 @@
       <div>
         <label>ビットレート</label>
         <select id="txRate">
-          <option value="2">2 bps(最遠距離・最堅牢)</option>
-          <option value="5" selected>5 bps(推奨)</option>
+          <option value="2" selected>2 bps(近距離テストも確実・推奨)</option>
+          <option value="5">5 bps</option>
           <option value="10">10 bps(近距離)</option>
           <option value="15">15 bps(至近・要60fpsカメラ)</option>
         </select>
@@ -123,7 +130,14 @@
         <label>カメラズーム(遠距離時はズームで送信画面を大きく捉える)</label>
         <input type="range" id="zoom" min="1" max="8" step="0.1" value="1">
       </div>
-      <canvas id="wave" width="600" height="74"></canvas>
+      <div class="small" style="margin-top:10px">明滅波形（青線）— 明滅で線が上下に振れれば信号は届いています</div>
+      <canvas id="wave" width="600" height="120"></canvas>
+      <div class="diag">
+        <div><span class="dv" id="dgContrast">–</span><span class="dl">コントラスト</span></div>
+        <div><span class="dv" id="dgFps">–</span><span class="dl">カメラfps</span></div>
+        <div><span class="dv" id="dgState">–</span><span class="dl">状態</span></div>
+        <div><span class="dv" id="dgBits">–</span><span class="dl">受信bit</span></div>
+      </div>
       <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
       <div class="small" id="camInfo"></div>
       <div id="msgs"></div>
@@ -273,10 +287,10 @@ const FC = (() => {
     constructor(onEvent, opts = {}) {
       this.onEvent = onEvent || (() => {});
       this.WINDOW_MS = opts.windowMs || 1700;   // min/max追跡窓
-      this.MIN_CONTRAST = opts.minContrast || 10;
-      this.HYST = opts.hyst || 0.13;            // レンジ比ヒステリシス
-      this.T_MIN = 22, this.T_MAX = 620;        // 許容ビット周期(ms) ≒ 1.6〜22bps
-      this.LOCK_NEED = 8;                       // ロックに必要な等間隔エッジ数
+      this.MIN_CONTRAST = opts.minContrast || 8;
+      this.HYST = opts.hyst || 0.11;            // レンジ比ヒステリシス
+      this.T_MIN = 22, this.T_MAX = 900;        // 許容ビット周期(ms) ≒ 1.1〜22bps
+      this.LOCK_NEED = 5;                       // ロックに必要な等間隔エッジ数
       this.reset();
       this.samples = [];                        // 波形表示用 {t,l,bin}
     }
@@ -362,7 +376,7 @@ const FC = (() => {
       // 不感帯なしの最近傍分類: 0.5T(境界) / 1.0T(ミッド) / それ以外は破綻
       if (this.pendingBoundary) {
         // 境界エッジの後 → 次はミッドビットエッジのはず
-        if (dt >= 0.72 * T && dt <= 1.45 * T) {
+        if (dt >= 0.72 * T && dt <= 1.55 * T) {
           this.pendingBoundary = false;
           this._midEdge(t, dir, dt);
         } else if (dt < 0.72 * T) {
@@ -370,11 +384,11 @@ const FC = (() => {
         } else { this._abort(); }
         return;
       }
-      if (dt < 0.25 * T) {
+      if (dt < 0.2 * T) {
         /* グリッチとして無視 */
       } else if (dt < 0.72 * T) {
         this.pendingBoundary = true;                  // ビット境界エッジ
-      } else if (dt <= 1.45 * T) {
+      } else if (dt <= 1.55 * T) {
         this._midEdge(t, dir, dt);                    // 次のミッドビット
       } else {
         this._abort();
@@ -400,7 +414,7 @@ const FC = (() => {
       const sorted = [...ivs].sort((a, b) => a - b);
       const med = sorted[sorted.length >> 1];
       if (med < this.T_MIN || med > this.T_MAX) return;
-      for (const iv of ivs) if (Math.abs(iv - med) > 0.25 * med) return;
+      for (const iv of ivs) if (Math.abs(iv - med) > 0.40 * med) return;
       // ロック成立: エッジ間隔 = ビット周期T(プリアンブル10... はミッドビット遷移のみ)
       this.T = med;
       this.lastMid = tail[tail.length - 1].t;
@@ -514,7 +528,7 @@ $('txStart').onclick = async () => {
   const bps = +$('txRate').value;
   const halfT = 1000 / (2 * bps);
   const hb = FC.bitsToHalfbits(bits);
-  const LEAD = Math.ceil(900 / halfT), TAIL = Math.ceil(600 / halfT), GAP = Math.ceil(1400 / halfT);
+  const LEAD = Math.ceil(1800 / halfT), TAIL = Math.ceil(700 / halfT), GAP = Math.ceil(1600 / halfT);
   const loop = $('txLoop').checked;
 
   const seq = [];
@@ -568,6 +582,7 @@ $('txStart').onclick = async () => {
 
 /* ================= 受信 ================= */
 let stream = null, track = null, rafId = null, usingRVFC = false;
+let _fpsTimes = [];
 let roi = { x: 0.5, y: 0.5, size: 0.25 };   // 正規化座標(中心+一辺比率)
 const sampleCanvas = document.createElement('canvas');
 sampleCanvas.width = 8; sampleCanvas.height = 8;
@@ -731,11 +746,15 @@ function startSampling() {
   const onFrame = (now, meta) => {
     if (!stream) return;
     const t = meta ? meta.mediaTime * 1000 : performance.now();
+    const wall = performance.now();
+    _fpsTimes.push(wall);
+    while (_fpsTimes.length && wall - _fpsTimes[0] > 1000) _fpsTimes.shift();
     const luma = sampleLuma(video);
     if (luma !== null) {
       demod.feed(t, luma);
       drawRoiOverlay(luma);
       drawWave();
+      updateDiag();
     }
     if (usingRVFC) video.requestVideoFrameCallback(onFrame);
     else rafId = requestAnimationFrame(() => onFrame(performance.now(), null));
@@ -744,6 +763,24 @@ function startSampling() {
   else rafId = requestAnimationFrame(() => onFrame(performance.now(), null));
 }
 function stopSampling() { if (rafId) cancelAnimationFrame(rafId); rafId = null; }
+
+/* ---- 診断表示 ---- */
+function updateDiag() {
+  const c = Math.round(demod.range || 0);
+  const cEl = $('dgContrast');
+  cEl.textContent = c;
+  cEl.className = 'dv ' + (c >= demod.MIN_CONTRAST ? (c >= 40 ? 'good' : 'warn') : 'bad');
+  $('dgFps').textContent = _fpsTimes.length;
+  const st = demod.state;
+  const map = { no_signal: '待機', idle: '信号あり', locked: '同期OK', frame: '受信中' };
+  const sEl = $('dgState');
+  sEl.textContent = map[st] || st;
+  sEl.className = 'dv ' + (st === 'frame' || st === 'locked' ? 'good' : st === 'idle' ? 'warn' : '');
+  let bits = 0;
+  if (st === 'locked') bits = demod.bitBuf.length;
+  else if (st === 'frame') bits = demod.frameBits ? demod.frameBits.length : 0;
+  $('dgBits').textContent = bits;
+}
 
 /* ---- 波形表示 ---- */
 function drawWave() {
@@ -754,12 +791,18 @@ function drawWave() {
   const t1 = S[S.length - 1].t, t0 = t1 - 4000;
   const X = t => (t - t0) / 4000 * cv.width;
   const Y = l => cv.height - 4 - (l / 255) * (cv.height - 8);
-  // 閾値ライン
+  // 閾値ライン(中央=グレー実線, 明暗判定境界=破線)
   if (demod.range >= demod.MIN_CONTRAST) {
+    const hiL = demod.thrMid + demod.range * demod.HYST;
+    const loL = demod.thrMid - demod.range * demod.HYST;
+    ctx.strokeStyle = '#3a4658'; ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(0, Y(hiL)); ctx.lineTo(cv.width, Y(hiL)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, Y(loL)); ctx.lineTo(cv.width, Y(loL)); ctx.stroke();
+    ctx.setLineDash([]);
     ctx.strokeStyle = '#2b3440'; ctx.beginPath();
     ctx.moveTo(0, Y(demod.thrMid)); ctx.lineTo(cv.width, Y(demod.thrMid)); ctx.stroke();
   }
-  ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 1.5; ctx.beginPath();
+  ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 2; ctx.beginPath();
   let first = true;
   for (const s of S) {
     if (s.t < t0) continue;
