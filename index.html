@@ -358,6 +358,7 @@
     </div>
     <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
     <div class="small" id="camInfo"></div>
+    <div class="small" id="dbg"></div>
 
     <!-- 操作部 -->
     <label>ビットレート(送信)── ダイヤルまたはランプ位置をクリック</label>
@@ -1463,29 +1464,34 @@ function sampleLuma(video) {
   return sum / 64;
 }
 
+let lastLuma = 0, loopError = '';
 function startSampling() {
   const video = $('video');
   usingRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
-  const onFrame = (now, meta) => {
+  const onFrame = () => {
     if (!stream) return;
-    const t = meta ? meta.mediaTime * 1000 : performance.now();
+    // 時刻は常に実時間を使う。iOS SafariはカメラストリームのmediaTimeが
+    // 凍結・量子化されることがあり、復調タイミングが全滅するため
     const wall = performance.now();
     _fpsTimes.push(wall);
     while (_fpsTimes.length && wall - _fpsTimes[0] > 1000) _fpsTimes.shift();
-    const luma = sampleLuma(video);
-    if (luma !== null) {
-      demod.feed(t, luma);
-      vuTarget = luma / 255;
-      drawRoiOverlay(luma);
-      drawWave();
-      drawVU();
-      updateDiag();
-    }
+    try {
+      const luma = sampleLuma(video);
+      if (luma !== null) {
+        lastLuma = luma;
+        demod.feed(wall, luma);
+        vuTarget = luma / 255;
+        drawRoiOverlay(luma);
+        drawWave();
+        drawVU();
+        updateDiag();
+      }
+    } catch (e) { loopError = e.message; updateDiag(); }
     if (usingRVFC) video.requestVideoFrameCallback(onFrame);
-    else rafId = requestAnimationFrame(() => onFrame(performance.now(), null));
+    else rafId = requestAnimationFrame(onFrame);
   };
   if (usingRVFC) video.requestVideoFrameCallback(onFrame);
-  else rafId = requestAnimationFrame(() => onFrame(performance.now(), null));
+  else rafId = requestAnimationFrame(onFrame);
 }
 function stopSampling() { if (rafId) cancelAnimationFrame(rafId); rafId = null; }
 
@@ -1505,6 +1511,13 @@ function updateDiag() {
   if (st === 'locked') bits = demod.bitBuf.length;
   else if (st === 'frame') bits = demod.frameBits ? demod.frameBits.length : 0;
   $('dgBits').textContent = bits;
+  // 詳細診断(トラブル時の手掛かり)
+  $('dbg').textContent =
+    `輝度${Math.round(lastLuma)} 幅${Math.round(demod.range || 0)}` +
+    ` / 標本${demod.samples.length} / エッジ${demod.edges.length}` +
+    ` / T=${demod.T ? demod.T.toFixed(0) + 'ms' : '-'}` +
+    (usingRVFC ? ' / rVFC' : ' / rAF') +
+    (loopError ? ` / ERR:${loopError}` : '');
 }
 
 /* ---- VUメーター(シグナルメーター) ---- */
