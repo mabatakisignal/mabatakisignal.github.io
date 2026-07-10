@@ -3,106 +3,376 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Mabataki Signal — 画面点滅テキスト通信</title>
+<title>MABATAKI SIGNAL by TELEPHONOVISION</title>
 <style>
   :root{
-    --bg:#0e1116; --panel:#171c24; --panel2:#1f2630; --fg:#e6edf3; --dim:#8b98a5;
-    --accent:#4da3ff; --ok:#3fb950; --warn:#d29922; --err:#f85149; --border:#2b3440;
+    --wood1:#8a5c30; --wood2:#6b4522;
+    --plate-hi:#dcd9d1; --plate:#cbc8bf; --plate-lo:#b5b2a8; --plate-edge:#8f8c83;
+    --ink:#3a3831; --ink-dim:#6b675c;
+    --screen:#0c0a04; --bezel:#23231f;
+    --fg:#ffb000; --fg-bright:#ffd060; --dim:#9a7a3a; --faint:#5c4a24;
+    --ok:#7dff8a; --warn:#ffd060; --err:#ff5f4d;
+    --red1:#df5340; --red2:#ab2c1a;
+    --paper:#e8dfc0; --paper-ink:#3a3020;
+    --mono:"Courier New",ui-monospace,SFMono-Regular,Menlo,Consolas,"Osaka-Mono","MS Gothic",monospace;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; padding:0; background:var(--bg); color:var(--fg);
-    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;}
-  header{padding:14px 16px 6px;}
-  header h1{margin:0; font-size:20px; letter-spacing:.5px;}
-  header p{margin:4px 0 0; color:var(--dim); font-size:12px;}
-  .tabs{display:flex; gap:8px; padding:12px 16px 0;}
-  .tabs button{flex:1; padding:10px 0; font-size:15px; border:1px solid var(--border);
-    background:var(--panel); color:var(--dim); border-radius:10px 10px 0 0; cursor:pointer;}
-  .tabs button.active{background:var(--panel2); color:var(--fg); border-bottom-color:var(--panel2); font-weight:600;}
-  main{padding:0 16px 40px;}
-  .panel{background:var(--panel2); border:1px solid var(--border); border-radius:0 0 12px 12px; padding:14px;}
+  html,body{margin:0; padding:0; color:var(--ink); font-family:var(--mono);}
+  /* 木製キャビネット */
+  body{padding:18px 12px 30px;
+    background:
+      repeating-linear-gradient(93deg, rgba(50,24,4,.14) 0 3px, rgba(0,0,0,0) 3px 9px, rgba(120,70,25,.12) 9px 14px),
+      linear-gradient(180deg,var(--wood1),var(--wood2)) fixed;}
+  body::after{content:''; position:fixed; inset:0; pointer-events:none; z-index:998;
+    background:radial-gradient(ellipse at center, transparent 68%, rgba(0,0,0,.3) 100%);}
+  /* 金属フェイスプレート(四隅ネジ) */
+  .cabinet{max-width:760px; margin:0 auto; position:relative; border-radius:6px;
+    padding:14px 12px 18px;
+    border:1px solid #4a3418;
+    background-image:
+      radial-gradient(circle 6px at 15px 15px, #efece4 0 2px, #7a776e 2.6px 4px, transparent 6px),
+      radial-gradient(circle 6px at calc(100% - 15px) 15px, #efece4 0 2px, #7a776e 2.6px 4px, transparent 6px),
+      radial-gradient(circle 6px at 15px calc(100% - 15px), #efece4 0 2px, #7a776e 2.6px 4px, transparent 6px),
+      radial-gradient(circle 6px at calc(100% - 15px) calc(100% - 15px), #efece4 0 2px, #7a776e 2.6px 4px, transparent 6px),
+      linear-gradient(180deg,var(--plate-hi) 0%,var(--plate) 55%,var(--plate-lo) 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -2px 4px rgba(0,0,0,.22);}
+  .glow{text-shadow:0 0 7px currentColor;}
+  /* ネームプレート+スピーカーグリル */
+  header{position:relative; padding:10px 4px 6px;}
+  header::after{content:''; position:absolute; right:8px; top:6px; width:58px; height:58px; border-radius:50%;
+    background-image:radial-gradient(circle 2.5px, #55524a 0 1.3px, transparent 2px);
+    background-size:9px 9px; background-position:4px 4px;
+    border:1px solid var(--plate-edge);
+    box-shadow:inset 0 2px 4px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.6);}
+  header h1{margin:0; display:inline-block; font-size:17px; letter-spacing:4px;
+    max-width:calc(100% - 76px); padding:6px 0 2px;
+    color:#22201a; text-shadow:0 1px 0 rgba(255,255,255,.65);}
+  header h1 .tag{font-size:9px; letter-spacing:2px; color:#45423a; vertical-align:middle; font-style:italic;}
+  header p{margin:8px 0 0 2px; color:var(--ink-dim); font-size:10.5px; letter-spacing:1px;}
+  /* 丸押しボタン+ランプ */
+  .pbRow{display:flex; gap:24px; justify-content:center; margin-top:16px;}
+  .pb{display:flex; flex-direction:column; align-items:center; gap:7px;}
+  .pushBtn{width:56px; height:56px; border-radius:50%; border:1px solid #6f6c63; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #f6f4ee, #c6c3ba 60%, #a19e95);
+    box-shadow:0 5px 0 #8a877e, 0 6px 10px rgba(0,0,0,.3), inset 0 1px 0 #fff;}
+  .pushBtn:active{transform:translateY(4px); box-shadow:0 1px 0 #8a877e;}
+  .pushBtn.red{border-color:#6e150c;
+    background:radial-gradient(circle at 35% 30%, #ff8a72, #c93a26 60%, #8a1d10);
+    box-shadow:0 5px 0 #6e150c, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);}
+  .pushBtn.red:active{transform:translateY(4px); box-shadow:0 1px 0 #6e150c;}
+  .pbLabel{font-size:11px; letter-spacing:2px; color:var(--ink);}
+  /* 表示ランプ */
+  .lamp{width:11px; height:11px; border-radius:50%; background:#8a877e; border:1px solid #5c594f;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,.5);}
+  .lamp.on, .bpsOpt.sel .lamp{background:#ffb000; border-color:#8a5f14;
+    box-shadow:0 0 9px rgba(255,176,0,.95), inset 0 -1px 2px rgba(0,0,0,.3);}
+  .lamp.green.on{background:#3fb950; border-color:#1d6b2c; box-shadow:0 0 9px rgba(63,185,80,.95);}
+  .lamp.red.on{background:#ff4530; border-color:#7a1810; box-shadow:0 0 9px rgba(255,69,48,.95);}
+  /* bpsダイヤルセレクタ */
+  .dialRow{display:flex; gap:16px; align-items:center;}
+  .dial{width:66px; height:66px; flex:none; border-radius:50%; position:relative; cursor:pointer;
+    background:radial-gradient(circle at 35% 30%, #dcd9d1, #a5a29a 70%, #8a877e);
+    border:1px solid #6f6c63; box-shadow:0 3px 6px rgba(0,0,0,.35), inset 0 1px 0 #fff;}
+  .dialKnob{position:absolute; inset:9px; border-radius:50%; transition:transform .15s;
+    background:radial-gradient(circle at 40% 32%, #55524a, #2e2c26 75%);
+    box-shadow:0 2px 4px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.15);}
+  .dialKnob::after{content:''; position:absolute; top:3px; left:50%; margin-left:-2px;
+    width:4px; height:17px; border-radius:2px; background:#f2efe6;
+    box-shadow:0 0 3px rgba(0,0,0,.6);}
+  .bpsLamps{flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:6px;}
+  .bpsOpt{display:flex; flex-direction:column; align-items:center; gap:5px;
+    padding:6px 2px; cursor:pointer; border-radius:6px;}
+  .bpsOpt:hover{background:rgba(0,0,0,.05);}
+  .bpsTxt{font-size:10px; line-height:1.4; letter-spacing:1px; color:var(--ink-dim); text-align:center;}
+  /* データ量メーター+ニキシー管タイマー */
+  .estRow{display:flex; gap:10px; align-items:stretch;}
+  .nixie{flex:1; min-width:0; height:52px; display:flex; align-items:center; justify-content:center; gap:6px;
+    border:2px solid var(--bezel); outline:1px solid #8f8c83; border-radius:10px;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, #1c0d04 0%, #0d0602 78%);
+    box-shadow:inset 0 0 12px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.55);}
+  .nx{font-size:21px; font-family:var(--mono); color:#ff9b4a; letter-spacing:2px;
+    text-shadow:0 0 8px rgba(255,120,30,.95), 0 0 16px rgba(255,90,20,.5);}
+  .nxUnit{font-size:8px; letter-spacing:1px; color:#8a5230;}
+  main{padding:12px 0 4px;}
+  /* サブプレート(刻印枠) */
+  .panel{border:1px solid var(--plate-edge); border-radius:8px; padding:16px 14px 14px;
+    background:linear-gradient(180deg,#d4d1c9,#c2bfb6);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7), inset 0 -2px 3px rgba(0,0,0,.15);}
   .hidden{display:none !important;}
-  label{font-size:13px; color:var(--dim); display:block; margin:10px 0 4px;}
-  textarea{width:100%; min-height:80px; background:var(--panel); color:var(--fg);
-    border:1px solid var(--border); border-radius:8px; padding:10px; font-size:15px; resize:vertical;}
-  select,input[type=range]{width:100%;}
-  select{background:var(--panel); color:var(--fg); border:1px solid var(--border);
-    border-radius:8px; padding:9px; font-size:14px;}
-  .row{display:flex; gap:12px; align-items:center;}
-  .row>div{flex:1;}
-  .btn{display:block; width:100%; padding:13px; margin-top:14px; font-size:16px; font-weight:600;
-    border:none; border-radius:10px; cursor:pointer; background:var(--accent); color:#04121f;}
-  .btn:disabled{opacity:.45; cursor:default;}
-  .btn.stop{background:var(--err); color:#fff;}
-  .meta{font-size:12px; color:var(--dim); margin-top:8px; line-height:1.7;}
-  .check{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px;}
-  .check input{width:18px; height:18px;}
-  details{margin-top:14px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 12px;}
-  details summary{cursor:pointer; font-size:13px; color:var(--accent);}
-  details ul{margin:8px 0 2px; padding-left:18px; font-size:12.5px; color:var(--dim); line-height:1.8;}
-  /* 送信フラッシュ画面 */
-  #flash{position:fixed; inset:0; z-index:100; background:#000; display:none;
-    align-items:flex-end; justify-content:center; cursor:pointer;}
-  #flash.on{display:flex;}
-  #flashInfo{margin-bottom:26px; padding:6px 14px; border-radius:20px; background:rgba(0,0,0,.55);
-    color:#9aa; font-size:12px; pointer-events:none; mix-blend-mode:difference;}
-  /* 受信 */
-  #camWrap{position:relative; width:100%; background:#000; border-radius:10px; overflow:hidden; margin-top:6px;}
-  #camWrap video{width:100%; display:block;}
+  label{font-size:10.5px; color:var(--ink-dim); display:block; margin:12px 0 5px; letter-spacing:1.5px;}
+  /* 筐体シルク印刷(刻印の質感) */
+  label, .fieldHint, .meta, .small, .status, .check span, .pbLabel, .bpsTxt, header p, details summary{
+    text-shadow:0 1px 0 rgba(255,255,255,.6);}
+  /* 物理セレクタ */
+  select{width:100%; color:var(--ink); border:1px solid var(--plate-edge); border-radius:7px; padding:9px;
+    font-size:13px; font-family:var(--mono);
+    background:linear-gradient(180deg,#f2f0ea,#d5d2c9);
+    box-shadow:0 2px 0 var(--plate-edge), inset 0 1px 0 #fff;}
+  input[type=range]{width:100%; accent-color:#55524a;}
+  /* 物理押しキー */
+  .btn{display:block; width:100%; padding:13px; margin-top:14px; font-size:15px; font-weight:700;
+    letter-spacing:3px; font-family:var(--mono); border:1px solid var(--plate-edge); border-radius:8px;
+    cursor:pointer; color:var(--ink);
+    background:linear-gradient(180deg,#f4f2ec,#cfccc3);
+    box-shadow:0 4px 0 var(--plate-edge), 0 5px 9px rgba(0,0,0,.25), inset 0 1px 0 #fff;}
+  .btn:active{transform:translateY(3px); box-shadow:0 1px 0 var(--plate-edge), inset 0 1px 2px rgba(0,0,0,.15);}
+  .btn:disabled{opacity:.4; cursor:default;}
+  .btn.stop{color:#8a1d10;}
+  .meta{font-size:11px; color:var(--ink-dim); margin-top:9px; line-height:1.7; letter-spacing:.5px;
+    min-height:1.7em;}  /* 空でも高さを確保してレイアウトのずれを防ぐ */
+  /* 警戒表示(ネジ止めプレート+黄黒ストライプ) */
+  .warnBox{margin-top:18px; padding:26px 18px; border:2px solid #6b675c; border-radius:8px;
+    display:flex; align-items:center; gap:16px;
+    color:#4a3a24; font-size:12.5px; line-height:1.9;
+    background-image:
+      radial-gradient(circle 4.5px at 10px 6px, #f5f2ea 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      radial-gradient(circle 4.5px at calc(100% - 10px) 6px, #f5f2ea 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      radial-gradient(circle 4.5px at 10px calc(100% - 6px), #f5f2ea 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      radial-gradient(circle 4.5px at calc(100% - 10px) calc(100% - 6px), #f5f2ea 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      repeating-linear-gradient(-45deg,#f5b400 0 14px,#1a1a18 14px 28px),
+      repeating-linear-gradient(-45deg,#f5b400 0 14px,#1a1a18 14px 28px),
+      linear-gradient(180deg,#eadfba,#d2c69e);
+    background-size:auto,auto,auto,auto,100% 12px,100% 12px,auto;
+    background-position:0 0,0 0,0 0,0 0,left top,left bottom,0 0;
+    background-repeat:no-repeat;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.65), inset 0 -2px 3px rgba(0,0,0,.18);}
+  .warnTri{flex:none; font-size:46px; line-height:1; color:#b02c14;
+    text-shadow:0 1px 0 rgba(255,255,255,.55);}
+  .warnBox b{display:block; color:#8a1d10; font-size:14px; letter-spacing:1px; margin-bottom:2px;
+    text-shadow:0 1px 0 rgba(255,255,255,.5);}
+  /* トグルスイッチ */
+  .check{display:flex; align-items:center; gap:10px; margin-top:12px; font-size:13px;
+    letter-spacing:1px; color:var(--ink);}
+  .check input{appearance:none; -webkit-appearance:none; width:40px; height:20px; flex:none;
+    background:#55524a; border:1px solid #3a3831; border-radius:10px; position:relative;
+    cursor:pointer; box-shadow:inset 0 2px 4px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.6);}
+  .check input::after{content:''; position:absolute; top:2px; left:2px; width:14px; height:14px;
+    border-radius:50%; background:linear-gradient(180deg,#f4f2ec,#b5b2a8);
+    transition:left .15s; box-shadow:0 1px 2px rgba(0,0,0,.55);}
+  .check input:checked{background:#7a5a10; box-shadow:inset 0 2px 4px rgba(0,0,0,.5), inset 0 0 8px rgba(255,176,0,.6), 0 1px 0 rgba(255,255,255,.6);}
+  .check input:checked::after{left:22px; background:linear-gradient(180deg,#ffd060,#c99418);
+    box-shadow:0 1px 2px rgba(0,0,0,.5), 0 0 6px rgba(255,176,0,.7);}
+  details{margin-top:14px; background:#c2bfb6; border:1px solid var(--plate-edge); border-radius:8px; padding:10px 12px;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.18);}
+  details summary{cursor:pointer; font-size:12px; color:var(--ink); letter-spacing:1px;}
+  details ul{margin:8px 0 2px; padding-left:18px; font-size:11.5px; color:var(--ink-dim); line-height:1.9;}
+  details b{color:var(--ink);}
+  /* ベゼル(四隅ネジ付きの金属枠) */
+  .bezel{margin-top:6px; padding:13px; border-radius:11px; border:1px solid #6f6c63;
+    background-image:
+      radial-gradient(circle 4.5px at 10px 10px, #efece4 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      radial-gradient(circle 4.5px at calc(100% - 10px) 10px, #efece4 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      radial-gradient(circle 4.5px at 10px calc(100% - 10px), #efece4 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      radial-gradient(circle 4.5px at calc(100% - 10px) calc(100% - 10px), #efece4 0 1.8px, #6b675c 2.2px 3.2px, transparent 4.5px),
+      linear-gradient(180deg,#bab7ad,#9d9a90);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 4px rgba(0,0,0,.28), 0 2px 4px rgba(0,0,0,.22);}
+  .bezel .crt, .bezel #liveLine, .bezel .meterRow, .bezel .diag{margin-top:0;}
+  /* メインCRT(寸法固定): 電文入力/カメラモニタ兼用 */
+  .crt{position:relative; margin-top:6px; height:240px; overflow:hidden;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(255,176,0,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #241b0c 0%, #120e05 78%);
+    border:4px solid var(--bezel); outline:1px solid #8f8c83; border-radius:14px;
+    box-shadow:inset 0 0 28px rgba(0,0,0,.9), inset 0 0 30px rgba(255,176,0,.06), 0 1px 0 rgba(255,255,255,.55);}
+  #txScreen{position:absolute; inset:0; overflow-y:auto; padding:13px 12px;
+    scrollbar-width:thin; scrollbar-color:#5c4a24 transparent;}
+  #camView{position:absolute; inset:0; background:#000;}
+  #camView video{width:100%; height:100%; object-fit:cover; display:block;}
+  #camView::after{content:''; position:absolute; inset:0; pointer-events:none; z-index:3;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 1px, transparent 1px 3px);}
+  .fields{display:flex; flex-wrap:wrap; gap:8px; align-content:flex-start;}
+  /* 単語マス = CRT内の区画(蛍光の枠線) */
+  .wordInput{min-width:7.5em; flex:1 0 7.5em; max-width:100%; padding:10px 8px; font-size:16px;
+    font-family:var(--mono); letter-spacing:2px; text-align:center;
+    color:var(--fg-bright); caret-color:var(--fg-bright);
+    text-shadow:0 0 6px rgba(255,176,0,.55);
+    background:rgba(255,176,0,.03);
+    border:1px dashed rgba(255,176,0,.4); border-radius:5px; outline:none;
+    box-shadow:none;}
+  .wordInput:focus{border-style:solid; border-color:var(--fg);
+    background:rgba(255,176,0,.06);
+    box-shadow:inset 0 0 14px rgba(255,176,0,.12), 0 0 9px rgba(255,176,0,.35);}
+  .fieldHint{font-size:10.5px; color:#57544b; margin-top:8px; letter-spacing:.5px; line-height:1.7;}
+  #toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:1200;
+    background:#241c0c; color:var(--warn); border:1px solid #3a2f18; border-radius:6px;
+    padding:9px 16px; font-size:12px; letter-spacing:1px; display:none; max-width:90vw;}
+  /* 送信フラッシュ画面(UI重畳なし) */
+  #flash{position:fixed; inset:0; z-index:1100; background:#000; display:none; cursor:pointer;}
+  #flash.on{display:block;}
+  #flashInfo{position:absolute; left:50%; bottom:30px; transform:translateX(-50%);
+    padding:7px 16px; border-radius:18px; background:rgba(20,15,5,.8);
+    color:#7a6a40; font-size:12px; letter-spacing:1px; pointer-events:none; white-space:nowrap;}
   #roiCanvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
-  #wave{width:100%; height:120px; background:var(--panel); border:1px solid var(--border);
-    border-radius:8px; margin-top:6px; display:block;}
-  /* 診断パネル */
+  .meterRow{display:flex; gap:10px; margin-top:10px; align-items:stretch;}
+  #vu{flex:1 1 46%; min-width:0; border:3px solid var(--bezel); outline:1px solid #8f8c83; border-radius:12px;
+    background:var(--screen); box-shadow:inset 0 0 14px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.55);}
+  #wave{flex:1 1 54%; min-width:0; border:3px solid var(--bezel); outline:1px solid #8f8c83; border-radius:12px;
+    background:var(--screen); box-shadow:inset 0 0 14px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.55);}
+  /* 計器窓 */
   .diag{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px;}
-  .diag>div{background:var(--panel); border:1px solid var(--border); border-radius:8px;
-    padding:7px 4px; text-align:center;}
-  .diag .dv{display:block; font-size:18px; font-weight:700; color:var(--fg); line-height:1.1;}
-  .diag .dl{display:block; font-size:10px; color:var(--dim); margin-top:3px;}
+  .diag>div{border:2px solid var(--bezel); outline:1px solid #8f8c83;
+    border-radius:8px; padding:7px 4px; text-align:center;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
+    box-shadow:inset 0 0 10px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.5);}
+  .diag .dv{display:block; font-size:17px; font-weight:700; color:#4dff7a; line-height:1.1;
+    text-shadow:0 0 6px rgba(77,255,122,.55);}
+  .diag .dl{display:block; font-size:9.5px; color:#4a7a52; margin-top:3px; letter-spacing:1px;}
   .diag .good{color:var(--ok);} .diag .warn{color:var(--warn);} .diag .bad{color:var(--err);}
-  .status{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:14px;}
-  .dot{width:10px; height:10px; border-radius:50%; background:var(--dim); flex:none;}
-  .dot.idle{background:var(--dim);} .dot.signal{background:var(--warn);}
-  .dot.lock{background:var(--accent);} .dot.rx{background:var(--ok); animation:blink 1s infinite;}
+  .status{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px;
+    letter-spacing:1px; color:var(--ink);}
+  .dot{width:9px; height:9px; border-radius:50%; background:#8f8c83; flex:none;
+    box-shadow:inset 0 1px 2px rgba(0,0,0,.5);}
+  .dot.idle{background:#8f8c83;}
+  .dot.signal{background:#f5b400; box-shadow:0 0 7px rgba(245,180,0,.9);}
+  .dot.lock{background:#ff8a00; box-shadow:0 0 7px rgba(255,138,0,.9);}
+  .dot.rx{background:#3fb950; box-shadow:0 0 7px rgba(63,185,80,.9); animation:blink 1s infinite;}
   @keyframes blink{50%{opacity:.35;}}
+  /* 速報層: ブラウン管一行表示 */
+  .liveWrap{margin-top:12px;}
+  .liveLabelRow{display:flex; justify-content:space-between; align-items:center;}
+  .modeSwitch{display:flex; border:1px solid var(--plate-edge); border-radius:6px; overflow:hidden;
+    box-shadow:0 2px 0 var(--plate-edge);}
+  .modeSwitch button{padding:5px 11px; font-size:10.5px; font-family:var(--mono); letter-spacing:1px;
+    background:linear-gradient(180deg,#f2f0ea,#d5d2c9); color:var(--ink-dim); border:none; cursor:pointer;}
+  .modeSwitch button.active{background:linear-gradient(180deg,#c9c6bd,#b5b2a8); color:var(--ink);
+    font-weight:700; box-shadow:inset 0 2px 3px rgba(0,0,0,.25);}
+  #liveLine{margin-top:5px; padding:14px 13px; min-height:52px; font-size:19px; letter-spacing:3px;
+    color:#8affa8; word-break:break-all; line-height:1.5;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
+    border:4px solid var(--bezel); outline:1px solid #8f8c83; border-radius:14px;
+    box-shadow:inset 0 0 28px rgba(0,0,0,.9), inset 0 0 30px rgba(77,255,122,.08), 0 1px 0 rgba(255,255,255,.55);}
+  #liveLine .cur{display:inline-block; width:.6em; background:#8affa8; animation:blink .8s infinite;
+    box-shadow:0 0 8px rgba(138,255,168,.8);}
+  /* 確定層: 紙テープ */
   #msgs{margin-top:12px;}
-  .msg{background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--ok);
-    border-radius:8px; padding:10px 12px; margin-top:8px; font-size:15px; word-break:break-all;}
-  .msg .time{font-size:11px; color:var(--dim); margin-top:4px;}
-  .msg.bad{border-left-color:var(--err);}
-  .small{font-size:12px; color:var(--dim);}
+  .tape{position:relative; background:var(--paper); color:var(--paper-ink);
+    border-radius:3px; padding:11px 14px 11px 22px; margin-top:10px;
+    font-size:17px; letter-spacing:3px; word-break:break-all; line-height:1.6;
+    box-shadow:0 2px 6px rgba(0,0,0,.55);}
+  .tape::before{content:''; position:absolute; left:8px; top:4px; bottom:4px; width:5px;
+    background-image:radial-gradient(circle, rgba(58,48,32,.5) 1.6px, transparent 2px);
+    background-size:5px 9px; background-repeat:repeat-y;}
+  .tape .head{font-size:10px; letter-spacing:1px; color:#7a6a48; margin-bottom:4px;}
+  .tape .head.ok{color:#3f7a3a;} .tape .head.bad{color:#a04030;}
+  .tape .time{font-size:10px; color:#8a7a58; margin-top:5px; letter-spacing:1px;}
+  .tape .fix{background:#ffd77a; border-radius:2px; animation:fixflash 1.6s ease-out;}
+  @keyframes fixflash{0%{background:#ff9c3f;} 100%{background:#ffd77a;}}
+  .small{font-size:11px; color:var(--ink-dim); letter-spacing:.5px;}
 </style>
 </head>
 <body>
 
+<div class="cabinet">
 <header>
-  <h1>👁 Mabataki Signal</h1>
-  <p>画面のまばたきで送る可視光テキスト通信 — 全画面1画素・時間方向輝度変調</p>
+  <h1>▚ MABATAKI SIGNAL <span class="tag">by TELEPHONOVISION</span></h1>
+  <p>可視光通信機 ── 全画面1画素・時間方向輝度変調/6ビット電文符号/FEC</p>
 </header>
 
-<div class="tabs">
-  <button id="tabTx" class="active">📤 送信</button>
-  <button id="tabRx">📥 受信</button>
-</div>
-
 <main>
-  <!-- ===== 送信 ===== -->
-  <section id="txPanel" class="panel">
-    <label>送信テキスト(UTF-8・最大255バイト)</label>
-    <textarea id="txText" placeholder="ここに送信する文字列を入力">こんにちは</textarea>
-    <div class="row">
-      <div>
-        <label>ビットレート</label>
-        <select id="txRate">
-          <option value="2" selected>2 bps(近距離テストも確実・推奨)</option>
-          <option value="5">5 bps</option>
-          <option value="10">10 bps(近距離)</option>
-          <option value="15">15 bps(至近・要60fpsカメラ)</option>
-        </select>
+  <section class="panel">
+    <!-- 操作ボタン(最上段) -->
+    <div class="pbRow" style="margin-top:4px">
+      <div class="pb"><span class="lamp" id="lampPop"></span>
+        <button class="pushBtn" id="popOpen" title="別ウィンドウの発光面を開く"></button>
+        <span class="pbLabel">送信ウィンドウ</span></div>
+      <div class="pb"><span class="lamp red" id="lampTx"></span>
+        <button class="pushBtn red" id="txStart" title="送信開始"></button>
+        <span class="pbLabel">送 信</span></div>
+      <div class="pb"><span class="lamp green" id="lampRx"></span>
+        <button class="pushBtn" id="rxKey" title="カメラ起動/停止"></button>
+        <span class="pbLabel">受 信</span></div>
+    </div>
+    <div class="fieldHint" style="text-align:center">送信ウィンドウが開いていれば別窓で発光、なければ全画面発光(発光面のクリックで停止)。受信はもう一度押すと停止。</div>
+    <div class="warnBox"><span class="warnTri">⚠</span>
+      <div class="warnTxt"><b>送信中は点滅する画面を直視しないでください。</b>
+      全画面の明滅は目の負担が大きく、光の点滅に敏感な方は発作等を誘発するおそれがあります。</div></div>
+
+    <!-- メインCRT: 通常=電文入力 / 受信中=カメラモニタ -->
+    <label>メインスクリーン ── 電文入力(1単語=1マス・リターンで次のマスへ)/受信中はカメラモニタ</label>
+    <div class="bezel">
+      <div class="crt" id="mainCrt">
+        <div id="txScreen">
+          <div class="fields" id="wordFields"></div>
+        </div>
+        <div id="camView" class="hidden">
+          <video id="video" autoplay playsinline muted></video>
+          <canvas id="roiCanvas"></canvas>
+        </div>
       </div>
     </div>
-    <div class="check"><input type="checkbox" id="txLoop" checked><span>繰り返し送信(受信失敗時のリトライに有効)</span></div>
+    <div class="fieldHint">ローマ字直接入力で即カタカナ表示(例: WATASHI→ワタシ)。IME使用時も確定のリターンでそのまま次マスへ。
+      英単語を送るときは下の「ローマ字→カナ自動変換」をOFF。使える文字はカタカナ・英数字・ー・?(漢字・スペースは不可)。</div>
+    <div class="check"><input type="checkbox" id="kanaMode" checked><span>ローマ字→カナ自動変換(英字をそのまま打つときはOFF)</span></div>
+
+    <!-- 受信モニタ(速報層) -->
+    <div class="liveWrap">
+      <div class="liveLabelRow">
+        <label style="margin:0">受信モニタ(速報層 ── 未確定・逐次表示)</label>
+        <div class="modeSwitch">
+          <button id="modeKana" class="active">カナ</button>
+          <button id="modeRaw">原文</button>
+        </div>
+      </div>
+      <div class="bezel">
+        <div id="liveLine" class="glow"><span class="cur">&nbsp;</span></div>
+      </div>
+    </div>
+
+    <!-- 計器 -->
+    <div class="bezel" style="margin-top:10px">
+      <div class="meterRow">
+        <canvas id="vu" width="300" height="130"></canvas>
+        <canvas id="wave" width="360" height="130"></canvas>
+      </div>
+    </div>
+    <div class="bezel" style="margin-top:10px">
+      <div class="diag">
+        <div><span class="dv" id="dgContrast">–</span><span class="dl">コントラスト</span></div>
+        <div><span class="dv" id="dgFps">–</span><span class="dl">カメラfps</span></div>
+        <div><span class="dv" id="dgState">–</span><span class="dl">状態</span></div>
+        <div><span class="dv" id="dgBits">–</span><span class="dl">受信bit</span></div>
+      </div>
+    </div>
+    <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
+    <div class="small" id="camInfo"></div>
+
+    <!-- 確定層(紙テープ) -->
+    <div id="msgs"></div>
+
+    <!-- 操作部 -->
+    <label>ビットレート(送信)── ダイヤルまたはランプ位置をクリック</label>
+    <div class="dialRow">
+      <div class="dial" id="bpsDial" title="クリックで切替"><div class="dialKnob" id="dialKnob"></div></div>
+      <div class="bpsLamps">
+        <div class="bpsOpt sel" data-v="2"><span class="lamp"></span><span class="bpsTxt">2 bps<br>確実・推奨</span></div>
+        <div class="bpsOpt" data-v="5"><span class="lamp"></span><span class="bpsTxt">5 bps<br>&nbsp;</span></div>
+        <div class="bpsOpt" data-v="10"><span class="lamp"></span><span class="bpsTxt">10 bps<br>近距離</span></div>
+        <div class="bpsOpt" data-v="15"><span class="lamp"></span><span class="bpsTxt">15 bps<br>至近・60fps</span></div>
+      </div>
+    </div>
+    <input type="hidden" id="txRate" value="2">
+    <div class="check"><input type="checkbox" id="txLoop" checked><span>リピート送信(終端後に同一電文を繰り返し)</span></div>
+    <div class="check"><input type="checkbox" id="txBeep" checked><span>ビーコン音(電信音)── 明フレームでトーン</span></div>
+    <label>ROIサイズ(受信 ── 白枠をドラッグで移動/送信画面が枠内に収まるよう調整)</label>
+    <input type="range" id="roiSize" min="6" max="60" value="25">
+    <label>カメラズーム(受信 ── 対応機種のみ有効)</label>
+    <input type="range" id="zoom" min="1" max="8" step="0.1" value="1" disabled>
+
+    <label>データ量/送信時間(送信中は残り時間をカウントダウン)</label>
+    <div class="bezel" style="margin-top:4px; padding:9px">
+      <div class="estRow">
+        <div class="nixie"><span class="nx" id="nxData">---</span><span class="nxUnit">BYTE</span></div>
+        <div class="nixie"><span class="nx" id="nxTime">--.-</span><span class="nxUnit">SEC</span></div>
+      </div>
+    </div>
     <div class="meta" id="txEstimate"></div>
-    <button class="btn" id="txStart">全画面で送信開始</button>
+
     <details>
       <summary>📡 距離を伸ばすための送信側チェックリスト</summary>
       <ul>
@@ -114,62 +384,43 @@
         <li>遠距離ほど低ビットレートに(2bps推奨)</li>
       </ul>
     </details>
-  </section>
-
-  <!-- ===== 受信 ===== -->
-  <section id="rxPanel" class="panel hidden">
-    <button class="btn" id="rxStart">カメラを起動</button>
-    <div id="camWrap" class="hidden">
-      <video id="video" autoplay playsinline muted></video>
-      <canvas id="roiCanvas"></canvas>
-    </div>
-    <div id="rxControls" class="hidden">
-      <label>ROIサイズ(枠をドラッグで移動/送信画面が枠内に収まるよう調整)</label>
-      <input type="range" id="roiSize" min="6" max="60" value="25">
-      <div id="zoomRow" class="hidden">
-        <label>カメラズーム(遠距離時はズームで送信画面を大きく捉える)</label>
-        <input type="range" id="zoom" min="1" max="8" step="0.1" value="1">
-      </div>
-      <div class="small" style="margin-top:10px">明滅波形（青線）— 明滅で線が上下に振れれば信号は届いています</div>
-      <canvas id="wave" width="600" height="120"></canvas>
-      <div class="diag">
-        <div><span class="dv" id="dgContrast">–</span><span class="dl">コントラスト</span></div>
-        <div><span class="dv" id="dgFps">–</span><span class="dl">カメラfps</span></div>
-        <div><span class="dv" id="dgState">–</span><span class="dl">状態</span></div>
-        <div><span class="dv" id="dgBits">–</span><span class="dl">受信bit</span></div>
-      </div>
-      <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
-      <div class="small" id="camInfo"></div>
-      <div id="msgs"></div>
-      <button class="btn stop" id="rxStop">カメラ停止</button>
-    </div>
     <details>
       <summary>📷 受信のコツ</summary>
       <ul>
         <li>白い枠(ROI)の中に送信画面だけが入るように、枠の位置・サイズとズームを調整</li>
         <li>カメラは三脚等で<b>固定</b>する。手ブレは誤検出の主因</li>
-        <li>波形グラフで明滅がはっきり2値に分かれていれば受信可能圏内</li>
+        <li>波形グラフで明滅がはっきり2値に分かれ、メーターの針が振れていれば受信可能圏内</li>
         <li>露出固定はブラウザ・機種依存です(対応時は自動で試行)。効かなくても差分検出で動作します</li>
         <li>受信側のビットレート設定は不要(プリアンブルから自動検出)</li>
+        <li>速報層の文字は受信途中の未確定表示です。終端+チェックサム照合後に紙テープへ確定します</li>
+        <li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます。file://直開きでは動かない環境があります</li>
       </ul>
     </details>
   </section>
 </main>
+</div>
 
-<!-- 全画面フラッシュ -->
+<!-- 全画面フラッシュ(送信中のUI重畳なし) -->
 <div id="flash"><div id="flashInfo">送信準備中…</div></div>
+<div id="toast"></div>
 
 <script>
 /* ================================================================
  * ==== MABATAKI SIGNAL CORE BEGIN ====
- * プロトコル層+復調器。DOM非依存(Nodeでの単体テスト可能)。
+ * プロトコル層+電文符号(コーデック)+復調器。DOM非依存(Nodeで単体テスト可能)。
  * 将来ESP32+LED送信機へ移植する場合もこの層をそのまま流用する。
  *
+ * 電文符号: 6ビット固定長。A-Z(0..25) 0-9(26..35) SP(36) -(37) ?(38) *(39) EOT(40)
+ * カタカナ⇔ローマ字: 完全可逆1対1(ワープロローマ字/訓令式ベース)
+ *   ん=NN ぢ=DI づ=DU を=WO ー=-
+ *   っ=次子音重複。ただし次がナ行/ン/母音/小書き/ー/語末など重複表現が
+ *   不能・曖昧になる場合は XTU(NNA=ンア と ッナ の衝突回避のための決定的規則)
  * フレーム構成(ビット列, MSBファースト):
  *   [プリアンブル 24bit: 101010...] [同期語 16bit: 0x2DD4]
- *   [FEC符号化フレーム: (LEN 1B + PAYLOAD + CRC16 2B) を
- *    Hamming(8,4) SECDED でニブル毎に1バイト化 → 各バイト2バイト]
- * 変調: マンチェスター符号 (1 = 暗→明, 0 = 明→暗)。
+ *   [FEC符号化フレーム: (LEN 1B + 6bitパック電文 + CRC16 2B) を
+ *    Hamming(8,4) SECDED でニブル毎に符号化 → 各バイト2バイト]
+ * 変調: マンチェスター符号 (1 = 暗→明, 0 = 明→暗)
+ * 完全受信の判定: 終端符号(EOT)受信 かつ CRC16一致
  * ================================================================ */
 const FC = (() => {
   'use strict';
@@ -178,6 +429,153 @@ const FC = (() => {
   const SYNC = 0x2DD4;                   // 16bit 同期語
   const SYNC_BITS = 16;
   const MAX_PAYLOAD = 255;
+
+  /* ---------- 6ビット電文符号表 ---------- */
+  const SYMS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -?*'; // index = 符号値
+  const EOT = 40;                        // 終端符号(制御)
+  const SYM_SP = 36, SYM_STAR = 39;
+
+  function packSymbols(symbols) {        // 6bit列 → バイト列(末尾0詰め)
+    const nBits = symbols.length * 6;
+    const out = new Uint8Array(Math.ceil(nBits / 8));
+    let p = 0;
+    for (const s of symbols) {
+      for (let i = 5; i >= 0; i--) {
+        if ((s >> i) & 1) out[p >> 3] |= 0x80 >> (p & 7);
+        p++;
+      }
+    }
+    return out;
+  }
+  function unpackSymbols(bytes) {        // → {symbols(EOT除く), sawEot}
+    const symbols = []; let sawEot = false;
+    const nBits = bytes.length * 8;
+    for (let p = 0; p + 6 <= nBits; p += 6) {
+      let v = 0;
+      for (let i = 0; i < 6; i++) {
+        const bp = p + i;
+        v = (v << 1) | ((bytes[bp >> 3] >> (7 - (bp & 7))) & 1);
+      }
+      if (v === EOT) { sawEot = true; break; }
+      symbols.push(v);
+    }
+    return { symbols, sawEot };
+  }
+
+  /* ---------- カタカナ⇔ローマ字(完全可逆1対1) ---------- */
+  const K2R = {
+    'ア':'A','イ':'I','ウ':'U','エ':'E','オ':'O',
+    'カ':'KA','キ':'KI','ク':'KU','ケ':'KE','コ':'KO',
+    'ガ':'GA','ギ':'GI','グ':'GU','ゲ':'GE','ゴ':'GO',
+    'サ':'SA','シ':'SI','ス':'SU','セ':'SE','ソ':'SO',
+    'ザ':'ZA','ジ':'ZI','ズ':'ZU','ゼ':'ZE','ゾ':'ZO',
+    'タ':'TA','チ':'TI','ツ':'TU','テ':'TE','ト':'TO',
+    'ダ':'DA','ヂ':'DI','ヅ':'DU','デ':'DE','ド':'DO',
+    'ナ':'NA','ニ':'NI','ヌ':'NU','ネ':'NE','ノ':'NO',
+    'ハ':'HA','ヒ':'HI','フ':'HU','ヘ':'HE','ホ':'HO',
+    'バ':'BA','ビ':'BI','ブ':'BU','ベ':'BE','ボ':'BO',
+    'パ':'PA','ピ':'PI','プ':'PU','ペ':'PE','ポ':'PO',
+    'マ':'MA','ミ':'MI','ム':'MU','メ':'ME','モ':'MO',
+    'ヤ':'YA','ユ':'YU','ヨ':'YO',
+    'ラ':'RA','リ':'RI','ル':'RU','レ':'RE','ロ':'RO',
+    'ワ':'WA','ヰ':'WI','ヱ':'WE','ヲ':'WO','ン':'NN',
+    'ヴ':'VU',
+    'ァ':'XA','ィ':'XI','ゥ':'XU','ェ':'XE','ォ':'XO',
+    'ャ':'XYA','ュ':'XYU','ョ':'XYO','ヮ':'XWA',
+    'ー':'-',
+    'キャ':'KYA','キュ':'KYU','キョ':'KYO',
+    'ギャ':'GYA','ギュ':'GYU','ギョ':'GYO',
+    'シャ':'SYA','シュ':'SYU','ショ':'SYO',
+    'ジャ':'ZYA','ジュ':'ZYU','ジョ':'ZYO',
+    'チャ':'TYA','チュ':'TYU','チョ':'TYO',
+    'ヂャ':'DYA','ヂュ':'DYU','ヂョ':'DYO',
+    'ニャ':'NYA','ニュ':'NYU','ニョ':'NYO',
+    'ヒャ':'HYA','ヒュ':'HYU','ヒョ':'HYO',
+    'ビャ':'BYA','ビュ':'BYU','ビョ':'BYO',
+    'ピャ':'PYA','ピュ':'PYU','ピョ':'PYO',
+    'ミャ':'MYA','ミュ':'MYU','ミョ':'MYO',
+    'リャ':'RYA','リュ':'RYU','リョ':'RYO',
+    'ファ':'FA','フィ':'FI','フェ':'FE','フォ':'FO'
+  };
+  const R2K = {};
+  for (const k in K2R) R2K[K2R[k]] = k;
+  R2K['XTU'] = 'ッ';                     // ッ単独形(送信側の特殊符号化に対応)
+  const DOUBLABLE = 'KSTHMYRWGZDBPVF';   // っ を子音重複で表せる子音(N,Xは除外)
+
+  function hiraToKata(s) {
+    return s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+  }
+
+  function kanaToRomaji(word) {          // カタカナ語 → 伝送ローマ字
+    let out = '';
+    for (let i = 0; i < word.length; i++) {
+      const c = word[i];
+      if (c === 'ッ') {
+        const rest = word.slice(i + 1);
+        const nextTok = rest ? (K2R[rest.slice(0, 2)] || K2R[rest[0]] || null) : null;
+        const h = nextTok ? nextTok[0] : null;
+        out += (h && DOUBLABLE.includes(h)) ? h : 'XTU';
+        continue;
+      }
+      const two = K2R[word.substr(i, 2)];
+      if (two !== undefined && word.substr(i, 2).length === 2) { out += two; i++; continue; }
+      const one = K2R[c];
+      if (one !== undefined) { out += one; continue; }
+      out += c;                          // 数字・?・-・英字はそのまま
+    }
+    return out;
+  }
+
+  function romajiToKana(s) {             // 伝送ローマ字 → カタカナ(貪欲最長一致・寛容)
+    let out = '', i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (i + 1 < s.length && s[i + 1] === c && DOUBLABLE.includes(c)) {
+        out += 'ッ'; i++; continue;      // 子音重複 → 促音(NNは除外済み)
+      }
+      let matched = false;
+      for (let L = 3; L >= 1; L--) {
+        if (i + L <= s.length) {
+          const k = R2K[s.substr(i, L)];
+          if (k) { out += k; i += L; matched = true; break; }
+        }
+      }
+      if (!matched) { out += c; i++; }   // 数字・?・未確定子音は素通し(速報層で許容)
+    }
+    return out;
+  }
+
+  /* ---------- 電文(単語列) ⇔ 符号列 ---------- */
+  function encodeWords(words) {          // カタカナ/英数字の単語配列 → 符号列(EOT付き)
+    const symbols = [];
+    let first = true;
+    for (let w of words) {
+      w = (w || '').trim();
+      if (!w) continue;                  // 空欄はスキップ
+      const kata = hiraToKata(w);
+      if (!first) symbols.push(SYM_SP);
+      first = false;
+      if (/[A-Z]/.test(kata)) symbols.push(SYM_STAR);  // 英字を含む語 → *マーカー
+      const roma = kanaToRomaji(kata);
+      for (const ch of roma) {
+        const s = SYMS.indexOf(ch);
+        if (s < 0) throw new Error('invalid char: ' + ch);
+        symbols.push(s);
+      }
+    }
+    if (symbols.length === 0) throw new Error('empty');
+    symbols.push(EOT);
+    return symbols;
+  }
+  function symbolsToWords(symbols) {     // 符号列(EOTなし) → [{raw, kana}]
+    const raw = symbols.map(s => SYMS[s] || '').join('');
+    return raw.split(' ').map(w =>
+      w.startsWith('*') ? { raw: w, kana: w.slice(1) }       // *語は無変換表示
+                        : { raw: w, kana: romajiToKana(w) });
+  }
+  function displayText(symbols, mode) {  // mode: 'kana' | 'raw'
+    return symbolsToWords(symbols).map(w => mode === 'raw' ? w.raw : w.kana).join(' ');
+  }
 
   /* ---------- CRC-16/CCITT-FALSE ---------- */
   function crc16(bytes) {
@@ -191,7 +589,6 @@ const FC = (() => {
   }
 
   /* ---------- Hamming(8,4) SECDED ---------- */
-  // Hamming(7,4): 符号語 [p1 p2 d1 p3 d2 d3 d4] + 全体パリティ → 8bit
   const HAM_ENC = new Uint8Array(16);
   const HAM_DEC = new Int8Array(256).fill(-1);
   (function buildHamming() {
@@ -202,18 +599,16 @@ const FC = (() => {
       let par = 0; for (let i = 0; i < 7; i++) par ^= (cw7 >> i) & 1;
       HAM_ENC[n] = (cw7 << 1) | par;
     }
-    // 距離1以内で最近傍復号(SECDED: 1bit訂正・2bit検出)
     for (let v = 0; v < 256; v++) {
       for (let n = 0; n < 16; n++) {
         const d = popcount(v ^ HAM_ENC[n]);
-        if (d === 0) { HAM_DEC[v] = n; break; }
-        if (d === 1) { HAM_DEC[v] = n; /* 距離1は一意 */ break; }
+        if (d <= 1) { HAM_DEC[v] = n; break; }
       }
     }
   })();
   function popcount(x) { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; }
 
-  function fecEncode(bytes) {           // 各バイト → 2符号バイト(上位ニブル, 下位ニブル)
+  function fecEncode(bytes) {
     const out = new Uint8Array(bytes.length * 2);
     for (let i = 0; i < bytes.length; i++) {
       out[2 * i] = HAM_ENC[(bytes[i] >> 4) & 0xF];
@@ -221,7 +616,7 @@ const FC = (() => {
     }
     return out;
   }
-  function fecDecode(coded) {           // → {bytes, errors(訂正数), fatal(復号不能数)}
+  function fecDecode(coded) {
     const n = coded.length >> 1;
     const bytes = new Uint8Array(n);
     let errors = 0, fatal = 0;
@@ -237,19 +632,8 @@ const FC = (() => {
   }
 
   /* ---------- 送信ビット列の構築 ---------- */
-  function textToBytes(text) {
-    return (typeof TextEncoder !== 'undefined')
-      ? new TextEncoder().encode(text)
-      : Uint8Array.from(Buffer.from(text, 'utf8'));   // Nodeフォールバック
-  }
-  function bytesToText(bytes) {
-    return (typeof TextDecoder !== 'undefined')
-      ? new TextDecoder('utf-8', { fatal: false }).decode(bytes)
-      : Buffer.from(bytes).toString('utf8');
-  }
-
-  function buildFrameBits(text) {
-    const payload = textToBytes(text);
+  function buildFrameBits(symbols) {     // 符号列(EOT込み) → ビット列
+    const payload = packSymbols(symbols);
     if (payload.length === 0) throw new Error('empty');
     if (payload.length > MAX_PAYLOAD) throw new Error('payload too long: ' + payload.length);
     const raw = new Uint8Array(1 + payload.length + 2);
@@ -274,45 +658,49 @@ const FC = (() => {
     return hb;
   }
 
-  function estimateSeconds(text, bps) {
-    const nBytes = textToBytes(text).length;
+  function estimateSeconds(symbolCount, bps) {
+    const nBytes = Math.ceil(symbolCount * 6 / 8);
     const bits = PREAMBLE_BITS + SYNC_BITS + (1 + nBytes + 2) * 16;
-    return bits / bps + 1.4;   // リードイン/テール込み概算
+    return bits / bps + 1.4;             // リードイン/テール込み概算
   }
 
   /* ---------- 復調器 ----------
    * feed(tMs, luma) を毎フレーム呼ぶだけ。ビットレートはプリアンブルから自動推定。
-   * onEvent({type:'status', state}), ({type:'message', text, errors, crcOk, tBit}) */
+   * onEvent:
+   *   {type:'status', state}
+   *   {type:'live', symbols, sawEot}                    … 速報層(バイト確定毎)
+   *   {type:'message', symbols, text, crcOk, eotOk, …}  … 確定層 */
   class Demodulator {
     constructor(onEvent, opts = {}) {
       this.onEvent = onEvent || (() => {});
-      this.WINDOW_MS = opts.windowMs || 1700;   // min/max追跡窓
+      this.WINDOW_MS = opts.windowMs || 1700;
       this.MIN_CONTRAST = opts.minContrast || 8;
-      this.HYST = opts.hyst || 0.11;            // レンジ比ヒステリシス
-      this.T_MIN = 22, this.T_MAX = 900;        // 許容ビット周期(ms) ≒ 1.1〜22bps
-      this.LOCK_NEED = 5;                       // ロックに必要な等間隔エッジ数
+      this.HYST = opts.hyst || 0.11;
+      this.T_MIN = 22; this.T_MAX = 900;
+      this.LOCK_NEED = 5;
       this.reset();
-      this.samples = [];                        // 波形表示用 {t,l,bin}
+      this.samples = [];
     }
     reset() {
-      this.win = [];            // {t,l}
-      this.bin = -1;            // 現在の2値状態
-      this.lastCross = null;    // 補間用の直前サンプル
-      this.edges = [];          // ロック前のエッジ {t,dir}
-      this.state = 'no_signal'; // no_signal | idle | locked | frame
-      this.T = 0;               // ビット周期(ms)
-      this.lastMid = 0;         // 直近のミッドビットエッジ時刻
+      this.win = [];
+      this.bin = -1;
+      this.lastCross = null;
+      this.edges = [];
+      this.state = 'no_signal';
+      this.T = 0;
+      this.lastMid = 0;
       this.pendingBoundary = false;
       this.bitBuf = [];
       this.frameBits = null;
       this.frameNeed = 0;
+      this.frameLen = 0;
+      this.livePayload = [];
       this._emitState();
     }
     _emitState() { this.onEvent({ type: 'status', state: this.state, tBit: this.T }); }
     _setState(s) { if (s !== this.state) { this.state = s; this._emitState(); } }
 
     feed(t, luma) {
-      // --- 適応閾値(移動min/max) ---
       this.win.push({ t, l: luma });
       while (this.win.length && t - this.win[0].t > this.WINDOW_MS) this.win.shift();
       let mn = Infinity, mx = -Infinity;
@@ -335,8 +723,7 @@ const FC = (() => {
       if (this.bin === -1) { this.bin = newBin === -1 ? (luma > this.thrMid ? 1 : 0) : newBin; this.lastCross = { t, l: luma }; this._pushSample(t, luma, this.bin); return; }
 
       if (newBin !== this.bin) {
-        // 交差時刻を線形補間。ヒステリシス閾値ではなく中央値(thrMid)基準に
-        // することで、ステップ状エッジに対する系統的な時刻バイアスを除去する
+        // 交差時刻を線形補間(中央値thrMid基準で時刻バイアス除去)
         const p = this.lastCross;
         let tEdge = t;
         if (p && p.l !== luma) {
@@ -346,7 +733,6 @@ const FC = (() => {
         this.bin = newBin;
         this._onEdge(tEdge, newBin === 1 ? +1 : -1);
       } else if (this.state === 'frame' || this.state === 'locked') {
-        // エッジ途絶タイムアウト
         if (t - this.lastMid > this.T * 3) { this._abort(); }
       }
       this.lastCross = { t, l: luma };
@@ -359,6 +745,7 @@ const FC = (() => {
     _abort() {
       this.edges = []; this.bitBuf = []; this.frameBits = null;
       this.pendingBoundary = false; this.T = 0;
+      this.frameLen = 0; this.livePayload = [];
       this._setState('idle');
     }
 
@@ -373,30 +760,28 @@ const FC = (() => {
 
       const dt = t - this.lastMid;
       const T = this.T;
-      // 不感帯なしの最近傍分類: 0.5T(境界) / 1.0T(ミッド) / それ以外は破綻
       if (this.pendingBoundary) {
-        // 境界エッジの後 → 次はミッドビットエッジのはず
         if (dt >= 0.72 * T && dt <= 1.55 * T) {
           this.pendingBoundary = false;
           this._midEdge(t, dir, dt);
         } else if (dt < 0.72 * T) {
-          /* グリッチ: 無視(境界の後に境界は来ない) */
+          /* グリッチ: 無視 */
         } else { this._abort(); }
         return;
       }
       if (dt < 0.2 * T) {
-        /* グリッチとして無視 */
+        /* グリッチ */
       } else if (dt < 0.72 * T) {
-        this.pendingBoundary = true;                  // ビット境界エッジ
+        this.pendingBoundary = true;
       } else if (dt <= 1.55 * T) {
-        this._midEdge(t, dir, dt);                    // 次のミッドビット
+        this._midEdge(t, dir, dt);
       } else {
         this._abort();
-        this._onEdge(t, dir);                         // 新しい信号列として再評価
+        this._onEdge(t, dir);
       }
     }
     _midEdge(t, dir, dt) {
-      this.T = 0.85 * this.T + 0.15 * dt;             // クロック追従
+      this.T = 0.85 * this.T + 0.15 * dt;
       this.lastMid = t;
       this._pushBit(dir > 0 ? 1 : 0);
     }
@@ -409,18 +794,16 @@ const FC = (() => {
       const ivs = [];
       for (let i = 1; i < tail.length; i++) {
         ivs.push(tail[i].t - tail[i - 1].t);
-        if (tail[i].dir === tail[i - 1].dir) return;  // プリアンブルは方向交互
+        if (tail[i].dir === tail[i - 1].dir) return;
       }
       const sorted = [...ivs].sort((a, b) => a - b);
       const med = sorted[sorted.length >> 1];
       if (med < this.T_MIN || med > this.T_MAX) return;
       for (const iv of ivs) if (Math.abs(iv - med) > 0.40 * med) return;
-      // ロック成立: エッジ間隔 = ビット周期T(プリアンブル10... はミッドビット遷移のみ)
       this.T = med;
       this.lastMid = tail[tail.length - 1].t;
       this.pendingBoundary = false;
       this.bitBuf = [];
-      // 直近エッジ自体もビット(向きで値が決まる)
       this.bitBuf.push(tail[tail.length - 1].dir > 0 ? 1 : 0);
       this.edges = [];
       this._setState('locked');
@@ -430,14 +813,15 @@ const FC = (() => {
       if (this.state === 'locked') {
         this.bitBuf.push(b);
         if (this.bitBuf.length > 64) this.bitBuf.shift();
-        // 同期語検索(1bit誤り許容)
         if (this.bitBuf.length >= SYNC_BITS) {
           let v = 0;
           const s = this.bitBuf.slice(-SYNC_BITS);
           for (const bit of s) v = ((v << 1) | bit) & 0xFFFF;
           if (popcount(v ^ SYNC) <= 1) {
             this.frameBits = [];
-            this.frameNeed = 16;      // まずLENの符号化2バイト分
+            this.frameNeed = 16;
+            this.frameLen = 0;
+            this.livePayload = [];
             this._setState('frame');
           }
         }
@@ -447,7 +831,17 @@ const FC = (() => {
           const lenByte = this._decodeBytes(this.frameBits.slice(0, 16));
           const len = lenByte.bytes[0];
           if (len < 1 || len > MAX_PAYLOAD) { this._abort(); return; }
+          this.frameLen = len;
           this.frameNeed = (1 + len + 2) * 16;
+        } else if (this.frameNeed > 16 && this.frameBits.length % 16 === 0) {
+          // 速報層: データバイト確定毎に電文符号を逐次デコード
+          const byteIdx = this.frameBits.length / 16 - 1;   // 0=LEN
+          if (byteIdx >= 1 && byteIdx <= this.frameLen) {
+            const dec = this._decodeBytes(this.frameBits.slice(byteIdx * 16, byteIdx * 16 + 16));
+            this.livePayload.push(dec.bytes[0]);
+            const up = unpackSymbols(Uint8Array.from(this.livePayload));
+            this.onEvent({ type: 'live', symbols: up.symbols, sawEot: up.sawEot });
+          }
         }
         if (this.frameNeed > 16 && this.frameBits.length >= this.frameNeed) {
           this._finishFrame();
@@ -470,16 +864,21 @@ const FC = (() => {
       const payload = raw.subarray(1, 1 + len);
       const gotCrc = (raw[1 + len] << 8) | raw[2 + len];
       const crcOk = crc16(raw.subarray(0, 1 + len)) === gotCrc && dec.fatal === 0;
-      const text = bytesToText(payload);
-      this.onEvent({ type: 'message', text, crcOk, errors: dec.errors, fatal: dec.fatal, tBit: this.T });
-      this._abort();   // 次フレーム待ちへ
+      const up = unpackSymbols(payload);
+      const text = up.symbols.map(s => SYMS[s] || '').join('');
+      this.onEvent({ type: 'message', symbols: up.symbols, text,
+                     crcOk, eotOk: up.sawEot, errors: dec.errors, fatal: dec.fatal, tBit: this.T });
+      this._abort();
     }
   }
 
   return { PREAMBLE_BITS, SYNC, SYNC_BITS, MAX_PAYLOAD,
+           SYMS, EOT, SYM_SP, SYM_STAR,
+           packSymbols, unpackSymbols,
+           hiraToKata, kanaToRomaji, romajiToKana, R2K,
+           encodeWords, symbolsToWords, displayText,
            crc16, fecEncode, fecDecode, HAM_ENC, HAM_DEC,
-           buildFrameBits, bitsToHalfbits, estimateSeconds,
-           textToBytes, bytesToText, Demodulator };
+           buildFrameBits, bitsToHalfbits, estimateSeconds, Demodulator };
 })();
 if (typeof module !== 'undefined') module.exports = FC;
 /* ==== MABATAKI SIGNAL CORE END ==== */
@@ -491,40 +890,216 @@ if (typeof module !== 'undefined') module.exports = FC;
 'use strict';
 const $ = id => document.getElementById(id);
 
-/* ---- タブ ---- */
-$('tabTx').onclick = () => switchTab(true);
-$('tabRx').onclick = () => switchTab(false);
-function switchTab(tx) {
-  $('tabTx').classList.toggle('active', tx);
-  $('tabRx').classList.toggle('active', !tx);
-  $('txPanel').classList.toggle('hidden', !tx);
-  $('rxPanel').classList.toggle('hidden', tx);
+/* ---- トースト ---- */
+let toastTimer = null;
+function showHint(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.style.display = 'none', 2600);
 }
 
-/* ================= 送信 ================= */
-let txTimer = null, wakeLock = null;
+/* ================= 送信: 1単語1入力欄(頼信紙) ================= */
+const fieldsEl = $('wordFields');
+
+/* ローマ字→カナ 逐次変換(入力補助 ── ヘボン式等のゆらぎも受理)
+ * 伝送用の厳密な1対1変換表(コア側)とは別物。表示・入力の利便のためのゆるい変換 */
+const INPUT_ALIASES = {
+  'SHI':'シ','SHA':'シャ','SHU':'シュ','SHO':'ショ','SHE':'シェ',
+  'CHI':'チ','CHA':'チャ','CHU':'チュ','CHO':'チョ','CHE':'チェ',
+  'TSU':'ツ','THI':'ティ','DHI':'ディ',
+  'JI':'ジ','JA':'ジャ','JU':'ジュ','JO':'ジョ','JE':'ジェ',
+  'FU':'フ','FYU':'フュ',
+  'VA':'ヴァ','VI':'ヴィ','VE':'ヴェ','VO':'ヴォ',
+  'WI':'ウィ','WE':'ウェ',
+  'LA':'ァ','LI':'ィ','LU':'ゥ','LE':'ェ','LO':'ォ',
+  'LYA':'ャ','LYU':'ュ','LYO':'ョ','LTU':'ッ','LWA':'ヮ'
+};
+const INPUT_TOKENS = Object.assign({}, FC.R2K, INPUT_ALIASES);
+function liveKana(s) {
+  let out = '', i = 0;
+  while (i < s.length) {
+    const c = s[i];
+    if (i + 1 < s.length && s[i + 1] === c && 'KSTHMYRWGZDBPVFCJ'.includes(c)) { out += 'ッ'; i++; continue; }
+    if (c === 'N' && i + 1 < s.length && /[A-Z]/.test(s[i + 1]) && !'AIUEOYN'.includes(s[i + 1])) {
+      out += 'ン'; i++; continue;          // n+子音 → ン(ワープロ流)
+    }
+    let m = null, ml = 0;
+    for (let L = 3; L >= 1; L--) {
+      if (i + L <= s.length) { const k = INPUT_TOKENS[s.substr(i, L)]; if (k) { m = k; ml = L; break; } }
+    }
+    if (m) { out += m; i += ml; } else { out += c; i++; }
+  }
+  return out;
+}
+
+function sanitizeField(inp) {
+  const before = inp.value;
+  if (before === '') { delete inp.dataset.kmode; return; }   // 空になったらモード固定を解除
+  // 入力を始めた時点の変換モードをこのマスに固定する
+  // (後からトグルを切り替えても入力済みの語は再変換しない)
+  if (inp.dataset.kmode === undefined)
+    inp.dataset.kmode = $('kanaMode').checked ? '1' : '0';
+  let s = before;
+  s = s.replace(/[！-～]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)); // 全角英数→半角
+  s = s.replace(/？/g, '?');
+  s = FC.hiraToKata(s);                     // ひらがな → カタカナ
+  s = s.toUpperCase();
+  s = s.replace(/[−ｰ―‐]/g, 'ー');
+  let out = '', dropped = false;
+  for (const c of s) {
+    if (/[A-Z0-9?\-ーァ-ヴ]/.test(c)) out += c;
+    else dropped = true;                    // 漢字・スペース等は破棄
+  }
+  if (inp.dataset.kmode === '1') out = liveKana(out);  // ローマ字→カナ 逐次変換
+  if (out !== before) {
+    inp.value = out;
+    try { inp.setSelectionRange(out.length, out.length); } catch (e) {}
+  }
+  if (dropped) showHint('カタカナ・英数字・ー・? のみ使用できます(漢字・スペースは不可)');
+}
+$('kanaMode').addEventListener('change', updateEstimate);
+
+function makeField(val = '') {
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'wordInput';
+  inp.value = val;
+  inp.setAttribute('enterkeyhint', 'next');
+  inp.setAttribute('autocapitalize', 'characters');
+  inp.autocomplete = 'off'; inp.spellcheck = false;
+  let pendingAdvance = false;
+  const advance = () => { const nxt = inp.nextElementSibling; (nxt || makeField()).focus(); };
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      if (e.isComposing || e.keyCode === 229) { pendingAdvance = true; return; } // IME確定 → 確定後に自動前進
+      e.preventDefault();
+      advance();
+    } else if (e.key === ' ') {
+      e.preventDefault();                   // スペースキー無効
+    } else if (e.key === 'Backspace' && inp.value === '' && fieldsEl.children.length > 1) {
+      e.preventDefault();
+      const prev = inp.previousElementSibling;
+      inp.remove();
+      if (prev) { prev.focus(); const L = prev.value.length; try { prev.setSelectionRange(L, L); } catch (err) {} }
+      updateEstimate();
+    }
+  });
+  inp.addEventListener('input', e => { if (!e.isComposing) sanitizeField(inp); updateEstimate(); });
+  inp.addEventListener('compositionend', () => {
+    sanitizeField(inp); updateEstimate();
+    if (pendingAdvance) { pendingAdvance = false; advance(); }  // リターン1回で確定+次マス
+  });
+  inp.addEventListener('focus', () => { try { inp.scrollIntoView({ block: 'nearest' }); } catch (e) {} });
+  fieldsEl.appendChild(inp);
+  return inp;
+}
+makeField();
+
+function gatherWords() {
+  return [...fieldsEl.querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean);
+}
 
 function updateEstimate() {
-  const text = $('txText').value;
+  const words = gatherWords();
   const bps = +$('txRate').value;
-  try {
-    const n = FC.textToBytes(text).length;
-    if (n === 0) { $('txEstimate').textContent = ''; return; }
-    if (n > FC.MAX_PAYLOAD) { $('txEstimate').textContent = `⚠ ${n}バイト — 上限255バイトを超えています`; return; }
-    const s = FC.estimateSeconds(text, bps);
-    $('txEstimate').textContent = `${n}バイト / 1回の送信 約${s.toFixed(1)}秒`;
-  } catch (e) { $('txEstimate').textContent = ''; }
+  let bytes = 0, secs = null, txt = '';
+  if (words.length) {
+    try {
+      const symbols = FC.encodeWords(words);
+      bytes = Math.ceil(symbols.length * 6 / 8);
+      if (bytes > FC.MAX_PAYLOAD) txt = `⚠ 電文が長すぎます(${bytes}/255バイト)`;
+      else {
+        secs = FC.estimateSeconds(symbols.length, bps);
+        txt = `${words.length}語 / ${symbols.length}符号 / ${bytes}バイト`;
+      }
+    } catch (e) {}
+  }
+  $('txEstimate').textContent = txt;
+  $('nxData').textContent = words.length === 0 ? '---' : String(Math.min(bytes, 999)).padStart(3, '0');
+  if (!txRunning)
+    $('nxTime').textContent = secs === null ? '--.-' : (secs >= 100 ? String(Math.round(secs)) : secs.toFixed(1));
 }
-$('txText').oninput = updateEstimate;
-$('txRate').onchange = updateEstimate;
-updateEstimate();
+
+/* ---- bps ダイヤルセレクタ(4灯) ---- */
+const BPS_VALUES = [2, 5, 10, 15];
+function setBps(v) {
+  $('txRate').value = v;
+  const idx = Math.max(0, BPS_VALUES.indexOf(v));
+  $('dialKnob').style.transform = `rotate(${-45 + idx * 30}deg)`;
+  document.querySelectorAll('.bpsOpt').forEach(o => o.classList.toggle('sel', +o.dataset.v === v));
+  updateEstimate();
+}
+document.querySelectorAll('.bpsOpt').forEach(o => o.addEventListener('click', () => setBps(+o.dataset.v)));
+$('bpsDial').onclick = () => {
+  const i = BPS_VALUES.indexOf(+$('txRate').value);
+  setBps(BPS_VALUES[(i + 1) % BPS_VALUES.length]);
+};
+setBps(2);
+
+/* ---- ビーコン音(電信音) ---- */
+const beacon = (() => {
+  let ctx = null, gain = null, cur = -1;
+  function ensure() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume().catch(() => {}); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    const osc = ctx.createOscillator();
+    osc.type = 'square'; osc.frequency.value = 770;
+    gain = ctx.createGain(); gain.gain.value = 0;
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start();
+  }
+  function set(on) {
+    if (!ctx || !gain) return;
+    const target = (on && $('txBeep').checked) ? 0.07 : 0;
+    if (target !== cur) { cur = target; gain.gain.setTargetAtTime(target, ctx.currentTime, 0.003); }
+  }
+  function off() { if (ctx && gain) { cur = 0; gain.gain.setTargetAtTime(0, ctx.currentTime, 0.003); } }
+  return { ensure, set, off };
+})();
+
+/* ---- 送信ウィンドウ(ポップアップ発光面) ---- */
+let popWin = null;
+
+$('popOpen').onclick = () => {
+  if (popWin && !popWin.closed) { try { popWin.focus(); } catch (e) {} return; }
+  popWin = window.open('', 'mabatakiTxWin',
+    'width=440,height=440,menubar=no,toolbar=no,location=no,status=no');
+  if (!popWin) { showHint('ポップアップがブロックされました。ブラウザの設定で許可してください'); return; }
+  const d = popWin.document;
+  d.open();
+  d.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
+    '<title>MABATAKI SIGNAL ── 送信ウィンドウ</title>' +
+    '<style>html,body{margin:0;height:100%;background:#000;cursor:pointer;font-family:monospace;}' +
+    '#i{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);color:#7a6a40;' +
+    'background:rgba(20,15,5,.8);padding:7px 16px;border-radius:18px;font-size:12px;' +
+    'white-space:nowrap;pointer-events:none;}</style></head>' +
+    '<body><div id="i">待機中 ── 送信ボタンで発光開始</div></body></html>');
+  d.close();
+};
+setInterval(() => {
+  $('lampPop').classList.toggle('on', !!(popWin && !popWin.closed));
+}, 800);
+
+/* ---- 送信実行 ---- */
+let txTimer = null, wakeLock = null, txRunning = false;
 
 $('txStart').onclick = async () => {
-  const text = $('txText').value;
+  const words = gatherWords();
   let bits;
-  try { bits = FC.buildFrameBits(text); }
-  catch (e) { alert(e.message === 'empty' ? 'テキストを入力してください' : '255バイト以内にしてください'); return; }
+  try {
+    const symbols = FC.encodeWords(words);
+    if (Math.ceil(symbols.length * 6 / 8) > FC.MAX_PAYLOAD) { showHint('電文が長すぎます(255バイト以内)'); return; }
+    bits = FC.buildFrameBits(symbols);
+  } catch (e) {
+    showHint(e.message === 'empty' ? '電文を入力してください' : '符号化できない文字があります');
+    return;
+  }
 
+  beacon.ensure();
   const bps = +$('txRate').value;
   const halfT = 1000 / (2 * bps);
   const hb = FC.bitsToHalfbits(bits);
@@ -537,120 +1112,248 @@ $('txStart').onclick = async () => {
   for (let i = 0; i < TAIL; i++) seq.push(0);
   const gapLen = GAP;
 
+  $('lampTx').classList.add('on');
+  txRunning = true;
+  // 発光面: 送信ウィンドウが開いていれば別窓、なければ全画面オーバーレイ
+  const usePop = !!(popWin && !popWin.closed);
   const flash = $('flash'), info = $('flashInfo');
-  flash.classList.add('on');
-  try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  let popBody = null, popInfo = null, watch = null;
+  if (usePop) {
+    popBody = popWin.document.body;
+    popInfo = popWin.document.getElementById('i');
+    try { popWin.focus(); } catch (e) {}
+  } else {
+    flash.classList.add('on');
+    try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
+  }
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) {}
+
+  // 別窓発光時はポップアップ側のrAFで駆動(メイン窓の非表示スロットリング回避)
+  const raf = usePop ? popWin.requestAnimationFrame.bind(popWin) : requestAnimationFrame;
+  const caf = usePop ? popWin.cancelAnimationFrame.bind(popWin) : cancelAnimationFrame;
 
   const t0 = performance.now();
   let cycle = 0, stopped = false;
   const totalPerCycle = seq.length + gapLen;
+  const dataStart = LEAD;
 
-  function frame(now) {
+  function setSurface(level) {
+    const c = level ? '#fff' : '#000';
+    if (usePop) { if (popBody) popBody.style.background = c; }
+    else flash.style.background = c;
+  }
+  function setInfo(show, txt) {
+    const el = usePop ? popInfo : info;
+    if (!el) return;
+    el.style.display = show ? 'block' : 'none';
+    if (show && txt !== undefined) el.textContent = txt;
+  }
+
+  function frame() {
     if (stopped) return;
-    const elapsed = now - t0;
+    if (usePop && popWin.closed) { stopTx(); return; }
+    const elapsed = performance.now() - t0;
     let idx = Math.floor(elapsed / halfT);
     if (loop) { cycle = Math.floor(idx / totalPerCycle); idx = idx % totalPerCycle; }
-    if (idx >= seq.length) {
-      if (!loop && cycle === 0 && idx >= seq.length) {
-        if (idx >= seq.length + Math.min(gapLen, Math.ceil(500 / halfT))) { stopTx(); return; }
-      }
-      flash.style.background = '#000';
-      info.textContent = loop ? `送信完了 → ${((totalPerCycle - idx) * halfT / 1000).toFixed(0)}秒後に再送信(${cycle + 1}回目完了)/ タップで停止` : '送信完了';
-    } else {
-      flash.style.background = seq[idx] ? '#fff' : '#000';
-      const dataStart = LEAD, dataEnd = LEAD + hb.length;
-      if (idx < dataStart) info.textContent = '同期準備中… / タップで停止';
-      else if (idx < dataEnd) info.textContent = `送信中 ${Math.round((idx - dataStart) / hb.length * 100)}% / タップで停止`;
-      else info.textContent = '終端送信中 / タップで停止';
-    }
-    txTimer = requestAnimationFrame(frame);
+    let level = 0;
+    if (idx < seq.length) level = seq[idx];
+    setSurface(level);
+    beacon.set(level);
+
+    // ニキシー管: 残り時間カウントダウン(リピート時はギャップ中=再送までの秒数)
+    const remIdx = idx < seq.length ? seq.length - idx
+                 : (loop ? totalPerCycle - idx : 0);
+    const rem = Math.max(0, remIdx * halfT / 1000);
+    $('nxTime').textContent = rem >= 100 ? String(Math.round(rem)) : rem.toFixed(1);
+
+    // UI重畳はリードイン(無信号の黒)中のみ。データ送出中は完全に非表示
+    if (idx < dataStart) setInfo(true, usePop
+      ? '⚠ 画面を直視しないでください ── クリックで停止'
+      : '⚠ 画面を直視しないでください ── タップで停止');
+    else setInfo(false);
+    if (!loop && idx >= seq.length + Math.min(gapLen, Math.ceil(500 / halfT))) { stopTx(); return; }
+    txTimer = raf(frame);
   }
-  txTimer = requestAnimationFrame(frame);
+  txTimer = raf(frame);
+  if (usePop) watch = setInterval(() => { if (popWin.closed && !stopped) stopTx(); }, 400);
 
   function stopTx() {
     stopped = true;
-    cancelAnimationFrame(txTimer);
-    flash.classList.remove('on');
-    flash.style.background = '#000';
+    try { caf(txTimer); } catch (e) {}
+    if (watch) clearInterval(watch);
+    beacon.off();
+    $('lampTx').classList.remove('on');
+    txRunning = false;
+    updateEstimate();               // ニキシー管を推定表示に戻す
+    if (usePop) {
+      if (popWin && !popWin.closed) {
+        popBody.style.background = '#000';
+        setInfo(true, '停止しました ── 送信ボタンで再開');
+        popBody.onclick = null;
+      }
+    } else {
+      flash.classList.remove('on');
+      flash.style.background = '#000';
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      flash.onclick = null;
+    }
     try { wakeLock?.release(); } catch (e) {}
-    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    flash.onclick = null;
   }
-  flash.onclick = stopTx;
+  if (usePop) popBody.onclick = stopTx;
+  else flash.onclick = stopTx;
 };
 
 /* ================= 受信 ================= */
 let stream = null, track = null, rafId = null, usingRVFC = false;
 let _fpsTimes = [];
-let roi = { x: 0.5, y: 0.5, size: 0.25 };   // 正規化座標(中心+一辺比率)
+let roi = { x: 0.5, y: 0.5, size: 0.25 };
 const sampleCanvas = document.createElement('canvas');
 sampleCanvas.width = 8; sampleCanvas.height = 8;
 const sctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
 
 const demod = new FC.Demodulator(onDemodEvent);
-let lastMsg = { text: null, t: 0, el: null, count: 1 };
+let lastMsg = { text: null, t: 0, count: 1 };
+let dispMode = 'kana';                       // 'kana' | 'raw'
+let liveSymbols = [];
+let lastLiveDisplay = { kana: '', raw: '' };
+const msgLog = [];                           // {symbols,text,crcOk,eotOk,errors,time,count,fixSet,fixMode}
+
+$('modeKana').onclick = () => setMode('kana');
+$('modeRaw').onclick = () => setMode('raw');
+function setMode(m) {
+  dispMode = m;
+  $('modeKana').classList.toggle('active', m === 'kana');
+  $('modeRaw').classList.toggle('active', m === 'raw');
+  renderLive();
+  renderMsgs();
+}
+
+function renderLive() {
+  const el = $('liveLine');
+  const txt = liveSymbols.length ? FC.displayText(liveSymbols, dispMode) : '';
+  el.innerHTML = '';
+  el.appendChild(document.createTextNode(txt));
+  const cur = document.createElement('span');
+  cur.className = 'cur'; cur.innerHTML = '&nbsp;';
+  el.appendChild(cur);
+}
+renderLive();
+
+function renderMsgs() {
+  const wrap = $('msgs');
+  wrap.innerHTML = '';
+  for (let i = msgLog.length - 1; i >= 0; i--) {
+    const m = msgLog[i];
+    const div = document.createElement('div');
+    div.className = 'tape';
+    const ok = m.crcOk && m.eotOk;
+    const head = document.createElement('div');
+    head.className = 'head ' + (ok ? 'ok' : 'bad');
+    head.textContent = ok
+      ? (m.errors > 0 ? `✓ 完全受信(FECで${m.errors}ビット訂正)` : '✓ 完全受信')
+      : `⚠ 不完全(${m.crcOk ? '終端符号なし' : 'チェックサム不一致'}・参考表示)`;
+    div.appendChild(head);
+    const body = document.createElement('div');
+    const txt = FC.displayText(m.symbols, dispMode);
+    if (m.fixSet && m.fixMode === dispMode) {
+      for (let k = 0; k < txt.length; k++) {
+        const sp = document.createElement('span');
+        if (m.fixSet.has(k)) sp.className = 'fix';
+        sp.textContent = txt[k];
+        body.appendChild(sp);
+      }
+    } else body.textContent = txt;
+    div.appendChild(body);
+    const time = document.createElement('div');
+    time.className = 'time';
+    time.textContent = m.time + (m.count > 1 ? ` ・ ${m.count}回受信` : '');
+    div.appendChild(time);
+    wrap.appendChild(div);
+  }
+}
 
 function onDemodEvent(ev) {
   if (ev.type === 'status') {
     const dot = $('stDot'), st = $('stText');
     dot.className = 'dot';
     if (ev.state === 'no_signal') { dot.classList.add('idle'); st.textContent = '待機中(信号なし/コントラスト不足)'; }
-    else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = '信号検出 — 同期待ち'; }
-    else if (ev.state === 'locked') { dot.classList.add('lock'); st.textContent = `同期確立(${(1000 / ev.tBit).toFixed(1)} bps)— データ待ち`; }
+    else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = '信号検出 ── 同期待ち'; }
+    else if (ev.state === 'locked') { dot.classList.add('lock'); st.textContent = `同期確立(${(1000 / ev.tBit).toFixed(1)} bps)── データ待ち`; }
     else if (ev.state === 'frame') { dot.classList.add('rx'); st.textContent = '受信中…'; }
+    if (ev.state !== 'frame' && liveSymbols.length) { liveSymbols = []; renderLive(); }
+  } else if (ev.type === 'live') {
+    liveSymbols = ev.symbols;
+    lastLiveDisplay = {
+      kana: FC.displayText(ev.symbols, 'kana'),
+      raw: FC.displayText(ev.symbols, 'raw')
+    };
+    renderLive();
   } else if (ev.type === 'message') {
     const now = Date.now();
-    if (ev.crcOk && ev.text === lastMsg.text && now - lastMsg.t < 8000 && lastMsg.el) {
+    const complete = ev.crcOk && ev.eotOk;
+    if (complete && ev.text === lastMsg.text && now - lastMsg.t < 8000) {
       lastMsg.count++; lastMsg.t = now;
-      lastMsg.el.querySelector('.time').textContent = timeStamp() + ` ・ ${lastMsg.count}回受信`;
+      const m = msgLog[msgLog.length - 1];
+      if (m) { m.count = lastMsg.count; m.time = timeStamp(); }
+      liveSymbols = []; renderLive(); renderMsgs();
       return;
     }
-    const div = document.createElement('div');
-    div.className = 'msg' + (ev.crcOk ? '' : ' bad');
-    const head = ev.crcOk
-      ? (ev.errors > 0 ? `✅ 受信成功(FECで${ev.errors}ビット訂正)` : '✅ 受信成功')
-      : `⚠ チェックサム不一致(参考表示)`;
-    div.innerHTML = `<div class="small">${head}</div><div></div><div class="time"></div>`;
-    div.children[1].textContent = ev.text;
-    div.querySelector('.time').textContent = timeStamp();
-    $('msgs').prepend(div);
-    if (ev.crcOk) lastMsg = { text: ev.text, t: now, el: div, count: 1 };
+    // FEC訂正の可視化: 速報層と確定層の差分をハイライト
+    let fixSet = null;
+    if (complete && ev.errors > 0) {
+      const fin = FC.displayText(ev.symbols, dispMode);
+      const live = lastLiveDisplay[dispMode] || '';
+      fixSet = new Set();
+      for (let k = 0; k < fin.length; k++) if (fin[k] !== live[k]) fixSet.add(k);
+    }
+    msgLog.push({ symbols: ev.symbols, text: ev.text, crcOk: ev.crcOk, eotOk: ev.eotOk,
+                  errors: ev.errors, time: timeStamp(), count: 1, fixSet, fixMode: dispMode });
+    if (msgLog.length > 30) msgLog.shift();
+    if (complete) lastMsg = { text: ev.text, t: now, count: 1 };
+    liveSymbols = [];
+    renderLive();
+    renderMsgs();
   }
 }
 function timeStamp() { return new Date().toLocaleTimeString('ja-JP'); }
 
-$('rxStart').onclick = async () => {
+$('rxKey').onclick = () => { if (stream) stopCamera(); else startCamera(); };
+
+async function startCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showHint('カメラAPIを使用できません。file://で開いている場合は https か localhost 経由で開いてください');
+    return;
+  }
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, frameRate: { ideal: 60 } },
       audio: false
     });
-  } catch (e) { alert('カメラを起動できませんでした: ' + e.message); return; }
+  } catch (e) { showHint('カメラを起動できませんでした: ' + e.message); return; }
   const video = $('video');
   video.srcObject = stream;
   track = stream.getVideoTracks()[0];
-  $('rxStart').classList.add('hidden');
-  $('camWrap').classList.remove('hidden');
-  $('rxControls').classList.remove('hidden');
+  $('camView').classList.remove('hidden');
+  $('txScreen').classList.add('hidden');
+  $('lampRx').classList.add('on');
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) {}
 
   await new Promise(r => video.onloadedmetadata = r);
   setupRoiCanvas();
   applyCameraTuning();
   startSampling();
-};
+}
 
-$('rxStop').onclick = () => {
+function stopCamera() {
   stopSampling();
   stream?.getTracks().forEach(t => t.stop());
   stream = null; track = null;
-  $('rxStart').classList.remove('hidden');
-  $('camWrap').classList.add('hidden');
-  $('rxControls').classList.add('hidden');
+  $('camView').classList.add('hidden');
+  $('txScreen').classList.remove('hidden');
+  $('lampRx').classList.remove('on');
   demod.reset();
   try { wakeLock?.release(); } catch (e) {}
-};
+}
 
 async function applyCameraTuning() {
   if (!track) return;
@@ -658,7 +1361,6 @@ async function applyCameraTuning() {
   const notes = [];
   const settings = track.getSettings ? track.getSettings() : {};
   notes.push(`${settings.width || '?'}×${settings.height || '?'} @${settings.frameRate ? Math.round(settings.frameRate) : '?'}fps`);
-  // 露出固定の試行(機種依存・失敗しても差分検出で動作)
   try {
     if (caps.exposureMode && caps.exposureMode.includes('manual')) {
       await track.applyConstraints({ advanced: [{ exposureMode: 'manual' }] });
@@ -669,19 +1371,25 @@ async function applyCameraTuning() {
       notes.push('露出固定: 非対応(差分検出で動作)');
     }
   } catch (e) { notes.push('露出固定: 失敗(差分検出で動作)'); }
+  const z = $('zoom');
   if (caps.zoom && caps.zoom.max > caps.zoom.min) {
-    const z = $('zoom');
     z.min = caps.zoom.min; z.max = caps.zoom.max;
     z.step = caps.zoom.step || 0.1; z.value = settings.zoom || caps.zoom.min;
-    $('zoomRow').classList.remove('hidden');
+    z.disabled = false;
     z.oninput = () => track.applyConstraints({ advanced: [{ zoom: +z.value }] }).catch(() => {});
+  } else {
+    z.disabled = true;
+    notes.push('ズーム: 非対応');
   }
   $('camInfo').textContent = notes.join(' / ');
 }
 
 /* ---- ROI 操作 ---- */
+let roiReady = false;
 function setupRoiCanvas() {
-  const rc = $('roiCanvas'), video = $('video');
+  if (roiReady) return;
+  roiReady = true;
+  const rc = $('roiCanvas');
   function resize() {
     rc.width = rc.clientWidth * devicePixelRatio;
     rc.height = rc.clientHeight * devicePixelRatio;
@@ -719,11 +1427,11 @@ function drawRoiOverlay(luma) {
   const w = rc.width, h = rc.height;
   const s = roi.size * Math.min(w, h);
   const x = roi.x * w - s / 2, y = roi.y * h - s / 2;
-  ctx.strokeStyle = demod.state === 'frame' ? '#3fb950' : '#fff';
+  ctx.strokeStyle = demod.state === 'frame' ? '#7dff8a' : '#a8ffc0';
   ctx.lineWidth = 2 * devicePixelRatio;
   ctx.strokeRect(x, y, s, s);
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
-  ctx.font = `${11 * devicePixelRatio}px sans-serif`;
+  ctx.fillStyle = 'rgba(138,255,168,.9)';
+  ctx.font = `${11 * devicePixelRatio}px monospace`;
   ctx.fillText(`輝度 ${luma.toFixed(0)}`, x + 4 * devicePixelRatio, y - 6 * devicePixelRatio < 10 ? y + s + 14 * devicePixelRatio : y - 6 * devicePixelRatio);
 }
 
@@ -731,8 +1439,13 @@ function drawRoiOverlay(luma) {
 function sampleLuma(video) {
   const vw = video.videoWidth, vh = video.videoHeight;
   if (!vw) return null;
-  const s = roi.size * Math.min(vw, vh);
-  const sx = Math.max(0, roi.x * vw - s / 2), sy = Math.max(0, roi.y * vh - s / 2);
+  // object-fit:cover でCRTに実際に表示されているソース領域へROIを対応付ける
+  const cw = video.clientWidth || vw, ch = video.clientHeight || vh;
+  const scale = Math.max(cw / vw, ch / vh);
+  const dw = cw / scale, dh = ch / scale;
+  const ox = (vw - dw) / 2, oy = (vh - dh) / 2;
+  const s = roi.size * Math.min(dw, dh);
+  const sx = Math.max(0, ox + roi.x * dw - s / 2), sy = Math.max(0, oy + roi.y * dh - s / 2);
   sctx.drawImage(video, sx, sy, s, s, 0, 0, 8, 8);
   const d = sctx.getImageData(0, 0, 8, 8).data;
   let sum = 0;
@@ -752,8 +1465,10 @@ function startSampling() {
     const luma = sampleLuma(video);
     if (luma !== null) {
       demod.feed(t, luma);
+      vuTarget = luma / 255;
       drawRoiOverlay(luma);
       drawWave();
+      drawVU();
       updateDiag();
     }
     if (usingRVFC) video.requestVideoFrameCallback(onFrame);
@@ -782,27 +1497,70 @@ function updateDiag() {
   $('dgBits').textContent = bits;
 }
 
+/* ---- VUメーター(シグナルメーター) ---- */
+let vuVal = 0, vuTarget = 0;
+function drawVU() {
+  vuVal += (vuTarget - vuVal) * 0.28;       // 針の慣性
+  const cv = $('vu'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0d1408'; ctx.fillRect(0, 0, W, H);
+  const cx = W / 2, cy = H - 16, R = H - 42;
+  const a0 = Math.PI * 1.22, a1 = Math.PI * 1.78;
+  // 目盛り
+  for (let i = 0; i <= 10; i++) {
+    const a = a0 + (a1 - a0) * i / 10;
+    const r1 = R, r2 = R + (i % 5 === 0 ? 10 : 6);
+    ctx.strokeStyle = i >= 7 ? '#ff5f4d' : '#4a7a52';
+    ctx.lineWidth = i % 5 === 0 ? 2 : 1;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1);
+    ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+    ctx.stroke();
+  }
+  // 弧
+  ctx.strokeStyle = '#2f4d2c'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, R, a0, a1); ctx.stroke();
+  // 針
+  const a = a0 + (a1 - a0) * Math.max(0, Math.min(1, vuVal));
+  ctx.strokeStyle = '#8affa8'; ctx.lineWidth = 2.5;
+  ctx.shadowColor = 'rgba(77,255,122,.8)'; ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(a) * (R + 8), cy + Math.sin(a) * (R + 8));
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  // 軸・ラベル
+  ctx.fillStyle = '#1d3319';
+  ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#4a7a52'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('SIGNAL', cx, H - 4);
+  ctx.textAlign = 'start';
+  // 走査線
+  ctx.fillStyle = 'rgba(0,0,0,.4)';
+  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+}
+
 /* ---- 波形表示 ---- */
 function drawWave() {
   const cv = $('wave'), ctx = cv.getContext('2d');
   const S = demod.samples;
-  ctx.fillStyle = '#171c24'; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.fillStyle = '#0d1408'; ctx.fillRect(0, 0, cv.width, cv.height);
   if (S.length < 2) return;
   const t1 = S[S.length - 1].t, t0 = t1 - 4000;
   const X = t => (t - t0) / 4000 * cv.width;
   const Y = l => cv.height - 4 - (l / 255) * (cv.height - 8);
-  // 閾値ライン(中央=グレー実線, 明暗判定境界=破線)
   if (demod.range >= demod.MIN_CONTRAST) {
     const hiL = demod.thrMid + demod.range * demod.HYST;
     const loL = demod.thrMid - demod.range * demod.HYST;
-    ctx.strokeStyle = '#3a4658'; ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = '#22421f'; ctx.setLineDash([4, 4]);
     ctx.beginPath(); ctx.moveTo(0, Y(hiL)); ctx.lineTo(cv.width, Y(hiL)); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, Y(loL)); ctx.lineTo(cv.width, Y(loL)); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.strokeStyle = '#2b3440'; ctx.beginPath();
+    ctx.strokeStyle = '#1a3018'; ctx.beginPath();
     ctx.moveTo(0, Y(demod.thrMid)); ctx.lineTo(cv.width, Y(demod.thrMid)); ctx.stroke();
   }
-  ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 2; ctx.beginPath();
+  ctx.strokeStyle = '#4dff7a'; ctx.lineWidth = 2; ctx.beginPath();
   let first = true;
   for (const s of S) {
     if (s.t < t0) continue;
@@ -810,6 +1568,9 @@ function drawWave() {
     else ctx.lineTo(X(s.t), Y(s.l));
   }
   ctx.stroke();
+  // 走査線
+  ctx.fillStyle = 'rgba(0,0,0,.4)';
+  for (let y = 0; y < cv.height; y += 3) ctx.fillRect(0, y, cv.width, 1);
 }
 })();
 </script>
