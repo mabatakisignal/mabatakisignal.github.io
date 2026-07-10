@@ -326,7 +326,7 @@
     <!-- 受信モニタ(紙テープ式・保持) -->
     <div class="liveWrap">
       <div class="liveLabelRow">
-        <label style="margin:0">受信モニタ ── 新着が左・過去は右へ(リセットまで保持)</label>
+        <label style="margin:0">受信モニタ ── 新しい電文が左・古い電文は右へ(リセットまで保持)</label>
         <div style="display:flex; gap:8px; align-items:center">
           <div class="modeSwitch">
             <button id="modeKana" class="active">カナ</button>
@@ -1249,20 +1249,20 @@ $('rxReset').onclick = () => {
   renderMonitor();
 };
 
-/* 受信モニタ: 紙テープ式 ── 新しい文字が左に生まれ、古い文字は右へ流れる。
- * リセットボタンを押すまで保持される */
+/* 受信モニタ: 紙テープ式 ── 新しい電文が左に生まれ、古い電文は右へ押し出される。
+ * 電文内の文字は通常の左→右で読める。リセットボタンを押すまで保持 */
 function renderMonitor() {
   const el = $('liveLine');
   el.innerHTML = '';
-  const cur = document.createElement('span');
-  cur.className = 'cur'; cur.innerHTML = '&nbsp;';
-  el.appendChild(cur);
   if (liveSymbols.length) {                  // 受信中(未確定)
     const sp = document.createElement('span');
     sp.className = 'liveSeg';
-    sp.textContent = [...FC.displayText(liveSymbols, dispMode)].reverse().join('');
+    sp.textContent = FC.displayText(liveSymbols, dispMode);
     el.appendChild(sp);
   }
+  const cur = document.createElement('span');
+  cur.className = 'cur'; cur.innerHTML = '&nbsp;';
+  el.appendChild(cur);
   for (const m of tapeMsgs) {                // 確定電文(新しい順に左から)
     const sep = document.createElement('span');
     sep.className = 'tapeSep'; sep.textContent = ' ◇ ';
@@ -1270,13 +1270,13 @@ function renderMonitor() {
     const txt = FC.displayText(m.symbols, dispMode);
     const seg = document.createElement('span');
     if (m.fixSet && m.fixMode === dispMode) {
-      for (let i = txt.length - 1; i >= 0; i--) {
+      for (let i = 0; i < txt.length; i++) {
         const c = document.createElement('span');
         if (m.fixSet.has(i)) c.className = 'fix';
         c.textContent = txt[i];
         seg.appendChild(c);
       }
-    } else seg.textContent = [...txt].reverse().join('');
+    } else seg.textContent = txt;
     el.appendChild(seg);
   }
 }
