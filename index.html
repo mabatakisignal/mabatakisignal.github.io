@@ -60,6 +60,10 @@
     background:radial-gradient(circle at 35% 30%, #ff8a72, #c93a26 60%, #8a1d10);
     box-shadow:0 5px 0 #6e150c, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);}
   .pushBtn.red:active{transform:translateY(4px); box-shadow:0 1px 0 #6e150c;}
+  .pushBtn.blue{border-color:#123a6e;
+    background:radial-gradient(circle at 35% 30%, #7ab4f2, #2a63b0 60%, #143a72);
+    box-shadow:0 5px 0 #123a6e, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);}
+  .pushBtn.blue:active{transform:translateY(4px); box-shadow:0 1px 0 #123a6e;}
   .pbLabel{font-size:11px; letter-spacing:2px; color:var(--ink);}
   /* 表示ランプ */
   .lamp{width:11px; height:11px; border-radius:50%; background:#8a877e; border:1px solid #5c594f;
@@ -285,7 +289,7 @@
         <button class="pushBtn red" id="txStart" title="送信開始"></button>
         <span class="pbLabel">送 信</span></div>
       <div class="pb"><span class="lamp green" id="lampRx"></span>
-        <button class="pushBtn" id="rxKey" title="カメラ起動/停止"></button>
+        <button class="pushBtn blue" id="rxKey" title="カメラ起動/停止"></button>
         <span class="pbLabel">受 信</span></div>
     </div>
     <div class="fieldHint" style="text-align:center">送信ウィンドウが開いていれば別窓で発光、なければ全画面発光(発光面のクリックで停止)。受信はもう一度押すと停止。</div>
@@ -902,6 +906,7 @@ function showHint(msg) {
 
 /* ================= 送信: 1単語1入力欄(頼信紙) ================= */
 const fieldsEl = $('wordFields');
+let txTimer = null, wakeLock = null, txRunning = false;   // 送信状態(先頭で宣言: TDZ回避)
 
 /* ローマ字→カナ 逐次変換(入力補助 ── ヘボン式等のゆらぎも受理)
  * 伝送用の厳密な1対1変換表(コア側)とは別物。表示・入力の利便のためのゆるい変換 */
@@ -1085,8 +1090,6 @@ setInterval(() => {
 }, 800);
 
 /* ---- 送信実行 ---- */
-let txTimer = null, wakeLock = null, txRunning = false;
-
 $('txStart').onclick = async () => {
   const words = gatherWords();
   let bits;
@@ -1211,12 +1214,13 @@ const sampleCanvas = document.createElement('canvas');
 sampleCanvas.width = 8; sampleCanvas.height = 8;
 const sctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
 
-const demod = new FC.Demodulator(onDemodEvent);
+// 受信表示の状態(demod生成前に宣言: 生成時にstatusイベントが発火するため)
 let lastMsg = { text: null, t: 0, count: 1 };
 let dispMode = 'kana';                       // 'kana' | 'raw'
 let liveSymbols = [];
 let lastLiveDisplay = { kana: '', raw: '' };
 const msgLog = [];                           // {symbols,text,crcOk,eotOk,errors,time,count,fixSet,fixMode}
+const demod = new FC.Demodulator(onDemodEvent);
 
 $('modeKana').onclick = () => setMode('kana');
 $('modeRaw').onclick = () => setMode('raw');
