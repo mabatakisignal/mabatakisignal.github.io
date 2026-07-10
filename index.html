@@ -252,7 +252,16 @@
     border:4px solid var(--bezel); outline:1px solid #8f8c83; border-radius:14px;
     box-shadow:inset 0 0 28px rgba(0,0,0,.9), inset 0 0 30px rgba(77,255,122,.08), 0 1px 0 rgba(255,255,255,.55);}
   #liveLine .cur{display:inline-block; width:.6em; background:#8affa8; animation:blink .8s infinite;
-    box-shadow:0 0 8px rgba(138,255,168,.8);}
+    box-shadow:0 0 8px rgba(138,255,168,.8); margin-right:3px;}
+  #liveLine{white-space:nowrap; overflow:hidden;}          /* テープ式: 古い文字は右端から流れ落ちる */
+  #liveLine .liveSeg{opacity:.8;}                          /* 未確定(受信中)はやや淡く */
+  #liveLine .tapeSep{color:#2f4d2c; margin:0 2px;}
+  #liveLine .fix{background:rgba(77,255,122,.3); border-radius:2px; animation:gfix 1.6s ease-out;}
+  @keyframes gfix{0%{background:rgba(77,255,122,.65);} 100%{background:rgba(77,255,122,.3);}}
+  .miniKey{padding:5px 12px; font-size:10.5px; font-family:var(--mono); letter-spacing:1px;
+    color:var(--ink); border:1px solid var(--plate-edge); border-radius:6px; cursor:pointer;
+    background:linear-gradient(180deg,#f2f0ea,#d5d2c9); box-shadow:0 2px 0 var(--plate-edge);}
+  .miniKey:active{transform:translateY(2px); box-shadow:none;}
   /* 確定層: 紙テープ */
   #msgs{margin-top:12px;}
   .tape{position:relative; background:var(--paper); color:var(--paper-ink);
@@ -314,18 +323,22 @@
       英単語を送るときは下の「ローマ字→カナ自動変換」をOFF。使える文字はカタカナ・英数字・ー・?(漢字・スペースは不可)。</div>
     <div class="check"><input type="checkbox" id="kanaMode" checked><span>ローマ字→カナ自動変換(英字をそのまま打つときはOFF)</span></div>
 
-    <!-- 受信モニタ(速報層) -->
+    <!-- 受信モニタ(紙テープ式・保持) -->
     <div class="liveWrap">
       <div class="liveLabelRow">
-        <label style="margin:0">受信モニタ(速報層 ── 未確定・逐次表示)</label>
-        <div class="modeSwitch">
-          <button id="modeKana" class="active">カナ</button>
-          <button id="modeRaw">原文</button>
+        <label style="margin:0">受信モニタ ── 新着が左・過去は右へ(リセットまで保持)</label>
+        <div style="display:flex; gap:8px; align-items:center">
+          <div class="modeSwitch">
+            <button id="modeKana" class="active">カナ</button>
+            <button id="modeRaw">原文</button>
+          </div>
+          <button class="miniKey" id="rxReset">リセット</button>
         </div>
       </div>
       <div class="bezel">
         <div id="liveLine" class="glow"><span class="cur">&nbsp;</span></div>
       </div>
+      <div class="small" id="rxInfo"></div>
     </div>
 
     <!-- 計器 -->
@@ -345,9 +358,6 @@
     </div>
     <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
     <div class="small" id="camInfo"></div>
-
-    <!-- 確定層(紙テープ) -->
-    <div id="msgs"></div>
 
     <!-- 操作部 -->
     <label>ビットレート(送信)── ダイヤルまたはランプ位置をクリック</label>
@@ -396,7 +406,7 @@
         <li>波形グラフで明滅がはっきり2値に分かれ、メーターの針が振れていれば受信可能圏内</li>
         <li>露出固定はブラウザ・機種依存です(対応時は自動で試行)。効かなくても差分検出で動作します</li>
         <li>受信側のビットレート設定は不要(プリアンブルから自動検出)</li>
-        <li>速報層の文字は受信途中の未確定表示です。終端+チェックサム照合後に紙テープへ確定します</li>
+        <li>受信中の文字は未確定(淡色)。終端+チェックサム照合後に確定し、モニタにリセットまで保持されます</li>
         <li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます。file://直開きでは動かない環境があります</li>
       </ul>
     </details>
@@ -1219,7 +1229,7 @@ let lastMsg = { text: null, t: 0, count: 1 };
 let dispMode = 'kana';                       // 'kana' | 'raw'
 let liveSymbols = [];
 let lastLiveDisplay = { kana: '', raw: '' };
-const msgLog = [];                           // {symbols,text,crcOk,eotOk,errors,time,count,fixSet,fixMode}
+const tapeMsgs = [];                         // 確定電文(新しい順) {symbols,text,fixSet,fixMode}
 const demod = new FC.Demodulator(onDemodEvent);
 
 $('modeKana').onclick = () => setMode('kana');
@@ -1228,53 +1238,48 @@ function setMode(m) {
   dispMode = m;
   $('modeKana').classList.toggle('active', m === 'kana');
   $('modeRaw').classList.toggle('active', m === 'raw');
-  renderLive();
-  renderMsgs();
+  renderMonitor();
 }
+$('rxReset').onclick = () => {
+  tapeMsgs.length = 0;
+  liveSymbols = [];
+  lastMsg = { text: null, t: 0, count: 1 };
+  $('rxInfo').textContent = '';
+  renderMonitor();
+};
 
-function renderLive() {
+/* 受信モニタ: 紙テープ式 ── 新しい文字が左に生まれ、古い文字は右へ流れる。
+ * リセットボタンを押すまで保持される */
+function renderMonitor() {
   const el = $('liveLine');
-  const txt = liveSymbols.length ? FC.displayText(liveSymbols, dispMode) : '';
   el.innerHTML = '';
-  el.appendChild(document.createTextNode(txt));
   const cur = document.createElement('span');
   cur.className = 'cur'; cur.innerHTML = '&nbsp;';
   el.appendChild(cur);
-}
-renderLive();
-
-function renderMsgs() {
-  const wrap = $('msgs');
-  wrap.innerHTML = '';
-  for (let i = msgLog.length - 1; i >= 0; i--) {
-    const m = msgLog[i];
-    const div = document.createElement('div');
-    div.className = 'tape';
-    const ok = m.crcOk && m.eotOk;
-    const head = document.createElement('div');
-    head.className = 'head ' + (ok ? 'ok' : 'bad');
-    head.textContent = ok
-      ? (m.errors > 0 ? `✓ 完全受信(FECで${m.errors}ビット訂正)` : '✓ 完全受信')
-      : `⚠ 不完全(${m.crcOk ? '終端符号なし' : 'チェックサム不一致'}・参考表示)`;
-    div.appendChild(head);
-    const body = document.createElement('div');
+  if (liveSymbols.length) {                  // 受信中(未確定)
+    const sp = document.createElement('span');
+    sp.className = 'liveSeg';
+    sp.textContent = [...FC.displayText(liveSymbols, dispMode)].reverse().join('');
+    el.appendChild(sp);
+  }
+  for (const m of tapeMsgs) {                // 確定電文(新しい順に左から)
+    const sep = document.createElement('span');
+    sep.className = 'tapeSep'; sep.textContent = ' ◇ ';
+    el.appendChild(sep);
     const txt = FC.displayText(m.symbols, dispMode);
+    const seg = document.createElement('span');
     if (m.fixSet && m.fixMode === dispMode) {
-      for (let k = 0; k < txt.length; k++) {
-        const sp = document.createElement('span');
-        if (m.fixSet.has(k)) sp.className = 'fix';
-        sp.textContent = txt[k];
-        body.appendChild(sp);
+      for (let i = txt.length - 1; i >= 0; i--) {
+        const c = document.createElement('span');
+        if (m.fixSet.has(i)) c.className = 'fix';
+        c.textContent = txt[i];
+        seg.appendChild(c);
       }
-    } else body.textContent = txt;
-    div.appendChild(body);
-    const time = document.createElement('div');
-    time.className = 'time';
-    time.textContent = m.time + (m.count > 1 ? ` ・ ${m.count}回受信` : '');
-    div.appendChild(time);
-    wrap.appendChild(div);
+    } else seg.textContent = [...txt].reverse().join('');
+    el.appendChild(seg);
   }
 }
+renderMonitor();
 
 function onDemodEvent(ev) {
   if (ev.type === 'status') {
@@ -1284,22 +1289,24 @@ function onDemodEvent(ev) {
     else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = '信号検出 ── 同期待ち'; }
     else if (ev.state === 'locked') { dot.classList.add('lock'); st.textContent = `同期確立(${(1000 / ev.tBit).toFixed(1)} bps)── データ待ち`; }
     else if (ev.state === 'frame') { dot.classList.add('rx'); st.textContent = '受信中…'; }
-    if (ev.state !== 'frame' && liveSymbols.length) { liveSymbols = []; renderLive(); }
+    if (ev.state !== 'frame' && liveSymbols.length) { liveSymbols = []; renderMonitor(); }
   } else if (ev.type === 'live') {
     liveSymbols = ev.symbols;
     lastLiveDisplay = {
       kana: FC.displayText(ev.symbols, 'kana'),
       raw: FC.displayText(ev.symbols, 'raw')
     };
-    renderLive();
+    renderMonitor();
   } else if (ev.type === 'message') {
     const now = Date.now();
     const complete = ev.crcOk && ev.eotOk;
+    const head = complete
+      ? (ev.errors > 0 ? `✓ 完全受信(FECで${ev.errors}ビット訂正)` : '✓ 完全受信')
+      : `⚠ 不完全(${ev.crcOk ? '終端符号なし' : 'チェックサム不一致'}・参考表示)`;
     if (complete && ev.text === lastMsg.text && now - lastMsg.t < 8000) {
       lastMsg.count++; lastMsg.t = now;
-      const m = msgLog[msgLog.length - 1];
-      if (m) { m.count = lastMsg.count; m.time = timeStamp(); }
-      liveSymbols = []; renderLive(); renderMsgs();
+      $('rxInfo').textContent = `${head} ・ ${timeStamp()} ・ ${lastMsg.count}回受信`;
+      liveSymbols = []; renderMonitor();
       return;
     }
     // FEC訂正の可視化: 速報層と確定層の差分をハイライト
@@ -1310,13 +1317,12 @@ function onDemodEvent(ev) {
       fixSet = new Set();
       for (let k = 0; k < fin.length; k++) if (fin[k] !== live[k]) fixSet.add(k);
     }
-    msgLog.push({ symbols: ev.symbols, text: ev.text, crcOk: ev.crcOk, eotOk: ev.eotOk,
-                  errors: ev.errors, time: timeStamp(), count: 1, fixSet, fixMode: dispMode });
-    if (msgLog.length > 30) msgLog.shift();
+    tapeMsgs.unshift({ symbols: ev.symbols, text: ev.text, fixSet, fixMode: dispMode });
+    if (tapeMsgs.length > 20) tapeMsgs.pop();
     if (complete) lastMsg = { text: ev.text, t: now, count: 1 };
+    $('rxInfo').textContent = `${head} ・ ${timeStamp()}`;
     liveSymbols = [];
-    renderLive();
-    renderMsgs();
+    renderMonitor();
   }
 }
 function timeStamp() { return new Date().toLocaleTimeString('ja-JP'); }
