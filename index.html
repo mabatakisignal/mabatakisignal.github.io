@@ -254,7 +254,8 @@
   #liveLine .cur{display:inline-block; width:.6em; background:#8affa8; animation:blink .8s infinite;
     box-shadow:0 0 8px rgba(138,255,168,.8); margin-right:3px;}
   #liveLine{white-space:nowrap; overflow:hidden;}          /* テープ式: 古い文字は右端から流れ落ちる */
-  #liveLine .liveSeg{opacity:.8;}                          /* 未確定(受信中)はやや淡く */
+  #liveLine .liveSeg{}
+  #liveLine .prov{color:#4a7a52;}                          /* 暫定(照合1周のみ)は淡色 */
   #liveLine .tapeSep{color:#2f4d2c; margin:0 2px;}
   #liveLine .fix{background:rgba(77,255,122,.3); border-radius:2px; animation:gfix 1.6s ease-out;}
   @keyframes gfix{0%{background:rgba(77,255,122,.65);} 100%{background:rgba(77,255,122,.3);}}
@@ -284,7 +285,7 @@
 <div class="cabinet">
 <header>
   <h1>▚ MABATAKI SIGNAL <span class="tag">by TELEPHONOVISION</span></h1>
-  <p>可視光通信機 ── 全画面1画素・時間方向輝度変調/6ビット電文符号/FEC</p>
+  <p>可視光通信機 ── 全画面1画素・和文モールス/パルス幅変調/周回冗長</p>
 </header>
 
 <main>
@@ -301,7 +302,8 @@
         <button class="pushBtn blue" id="rxKey" title="カメラ起動/停止"></button>
         <span class="pbLabel">受 信</span></div>
     </div>
-    <div class="fieldHint" style="text-align:center">送信ウィンドウが開いていれば別窓で発光、なければ全画面発光(発光面のクリックで停止)。受信はもう一度押すと停止。</div>
+    <div class="fieldHint" style="text-align:center">送信ウィンドウが開いていれば別窓で発光、なければ全画面発光(発光面のクリックでSKを打って停止)。受信はもう一度押すと停止。
+      1回送信では周回照合ができないため、受信文字は暫定色のまま表示されます。</div>
     <div class="warnBox"><span class="warnTri">⚠</span>
       <div class="warnTxt"><b>送信中は点滅する画面を直視しないでください。</b>
       全画面の明滅は目の負担が大きく、光の点滅に敏感な方は発作等を誘発するおそれがあります。</div></div>
@@ -320,17 +322,18 @@
       </div>
     </div>
     <div class="fieldHint">ローマ字直接入力で即カタカナ表示(例: WATASHI→ワタシ)。IME使用時も確定のリターンでそのまま次マスへ。
-      英単語を送るときは下の「ローマ字→カナ自動変換」をOFF。使える文字はカタカナ・英数字・ー・?(漢字・スペースは不可)。</div>
+      英単語を送るときは下の「ローマ字→カナ自動変換」をOFF(英数字は国際モールスで自動送信)。
+      使える文字はカタカナ・英数字・ー・?(漢字・スペースは不可)。小書き(ッ・ャ等)は電報の流儀で並字(ツ・ヤ)として送られます。</div>
     <div class="check"><input type="checkbox" id="kanaMode" checked><span>ローマ字→カナ自動変換(英字をそのまま打つときはOFF)</span></div>
 
     <!-- 受信モニタ(紙テープ式・保持) -->
     <div class="liveWrap">
       <div class="liveLabelRow">
-        <label style="margin:0">受信モニタ ── 新しい電文が左・古い電文は右へ(リセットまで保持)</label>
+        <label style="margin:0">受信モニタ ── 淡色=暫定/本来色=周回一致で確定(リセットまで保持)</label>
         <div style="display:flex; gap:8px; align-items:center">
           <div class="modeSwitch">
             <button id="modeKana" class="active">カナ</button>
-            <button id="modeRaw">原文</button>
+            <button id="modeRaw">符号</button>
           </div>
           <button class="miniKey" id="rxReset">リセット</button>
         </div>
@@ -353,7 +356,7 @@
         <div><span class="dv" id="dgContrast">–</span><span class="dl">コントラスト</span></div>
         <div><span class="dv" id="dgFps">–</span><span class="dl">カメラfps</span></div>
         <div><span class="dv" id="dgState">–</span><span class="dl">状態</span></div>
-        <div><span class="dv" id="dgBits">–</span><span class="dl">受信bit</span></div>
+        <div><span class="dv" id="dgBits">–</span><span class="dl">受信符号</span></div>
       </div>
     </div>
     <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
@@ -361,18 +364,18 @@
     <div class="small" id="dbg"></div>
 
     <!-- 操作部 -->
-    <label>ビットレート(送信)── ダイヤルまたはランプ位置をクリック</label>
+    <label>送信速度(モールス短点の長さ)── ダイヤルまたはランプ位置をクリック</label>
     <div class="dialRow">
       <div class="dial" id="bpsDial" title="クリックで切替"><div class="dialKnob" id="dialKnob"></div></div>
       <div class="bpsLamps">
-        <div class="bpsOpt sel" data-v="2"><span class="lamp"></span><span class="bpsTxt">2 bps<br>確実・推奨</span></div>
-        <div class="bpsOpt" data-v="5"><span class="lamp"></span><span class="bpsTxt">5 bps<br>&nbsp;</span></div>
-        <div class="bpsOpt" data-v="10"><span class="lamp"></span><span class="bpsTxt">10 bps<br>近距離</span></div>
-        <div class="bpsOpt" data-v="15"><span class="lamp"></span><span class="bpsTxt">15 bps<br>至近・60fps</span></div>
+        <div class="bpsOpt" data-v="150"><span class="lamp"></span><span class="bpsTxt">150ms<br>遠距離・確実</span></div>
+        <div class="bpsOpt sel" data-v="100"><span class="lamp"></span><span class="bpsTxt">100ms<br>標準</span></div>
+        <div class="bpsOpt" data-v="70"><span class="lamp"></span><span class="bpsTxt">70ms<br>近距離</span></div>
+        <div class="bpsOpt" data-v="50"><span class="lamp"></span><span class="bpsTxt">50ms<br>至近・要60fps</span></div>
       </div>
     </div>
-    <input type="hidden" id="txRate" value="2">
-    <div class="check"><input type="checkbox" id="txLoop" checked><span>リピート送信(終端後に同一電文を繰り返し)</span></div>
+    <input type="hidden" id="txRate" value="100">
+    <div class="check"><input type="checkbox" id="txLoop" checked><span>リピート送信(周回冗長 ── 2周目以降で文字を照合・確定)</span></div>
     <div class="check"><input type="checkbox" id="txBeep" checked><span>ビーコン音(電信音)── 明フレームでトーン</span></div>
     <label>ROIサイズ(受信 ── 白枠をドラッグで移動/送信画面が枠内に収まるよう調整)</label>
     <input type="range" id="roiSize" min="6" max="60" value="25">
@@ -382,7 +385,7 @@
     <label>データ量/送信時間(送信中は残り時間をカウントダウン)</label>
     <div class="bezel" style="margin-top:4px; padding:9px">
       <div class="estRow">
-        <div class="nixie"><span class="nx" id="nxData">---</span><span class="nxUnit">BYTE</span></div>
+        <div class="nixie"><span class="nx" id="nxData">---</span><span class="nxUnit">字</span></div>
         <div class="nixie"><span class="nx" id="nxTime">--.-</span><span class="nxUnit">SEC</span></div>
       </div>
     </div>
@@ -396,7 +399,7 @@
         <li>ダークモードの自動減光・省電力モード・ナイトシフトを切る</li>
         <li>直射日光下は画面がコントラスト負けします。<b>夕方以降〜夜間が本領</b></li>
         <li>画面を受信カメラへ正対させ、送信中は動かさない</li>
-        <li>遠距離ほど低ビットレートに(2bps推奨)</li>
+        <li>遠距離ほど短点を長く(150ms推奨)。近距離では短くして高速化</li>
       </ul>
     </details>
     <details>
@@ -406,8 +409,9 @@
         <li>カメラは三脚等で<b>固定</b>する。手ブレは誤検出の主因</li>
         <li>波形グラフで明滅がはっきり2値に分かれ、メーターの針が振れていれば受信可能圏内</li>
         <li>露出固定はブラウザ・機種依存です(対応時は自動で試行)。効かなくても差分検出で動作します</li>
-        <li>受信側のビットレート設定は不要(プリアンブルから自動検出)</li>
-        <li>受信中の文字は未確定(淡色)。終端+チェックサム照合後に確定し、モニタにリセットまで保持されます</li>
+        <li>受信側の速度設定は不要(冒頭のVVVから短点長を自動測定)</li>
+        <li>淡色の文字は暫定です。リピート送信の周回照合(2周一致)で本来色に確定し、3周以降は多数決で訂正されます</li>
+        <li>濁点・半濁点は独立符号のため、表示が一瞬「カ→ガ」のように化けるのは正常です</li>
         <li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます。file://直開きでは動かない環境があります</li>
       </ul>
     </details>
@@ -422,62 +426,96 @@
 <script>
 /* ================================================================
  * ==== MABATAKI SIGNAL CORE BEGIN ====
- * プロトコル層+電文符号(コーデック)+復調器。DOM非依存(Nodeで単体テスト可能)。
+ * プロトコル層+和文モールス符号+復調器。DOM非依存(Nodeで単体テスト可能)。
  * 将来ESP32+LED送信機へ移植する場合もこの層をそのまま流用する。
  *
- * 電文符号: 6ビット固定長。A-Z(0..25) 0-9(26..35) SP(36) -(37) ?(38) *(39) EOT(40)
- * カタカナ⇔ローマ字: 完全可逆1対1(ワープロローマ字/訓令式ベース)
- *   ん=NN ぢ=DI づ=DU を=WO ー=-
- *   っ=次子音重複。ただし次がナ行/ン/母音/小書き/ー/語末など重複表現が
- *   不能・曖昧になる場合は XTU(NNA=ンア と ッナ の衝突回避のための決定的規則)
- * フレーム構成(ビット列, MSBファースト):
- *   [プリアンブル 24bit: 101010...] [同期語 16bit: 0x2DD4]
- *   [FEC符号化フレーム: (LEN 1B + 6bitパック電文 + CRC16 2B) を
- *    Hamming(8,4) SECDED でニブル毎に符号化 → 各バイト2バイト]
- * 変調: マンチェスター符号 (1 = 暗→明, 0 = 明→暗)
- * 完全受信の判定: 終端符号(EOT)受信 かつ CRC16一致
+ * 方式(追補第2弾): 和文モールス+パルス幅変調+周回冗長
+ *  - カタカナ1文字=1和文モールス符号。英数字は国際モールス
+ *  - 濁点・半濁点は独立符号(ガ=カ+゛)。小書きは並字に正規化(ッ→ツ)
+ *  - 変調: 短点=明1単位, 長点=明3単位, 符号内ギャップ=暗1,
+ *          文字間=暗3, 語間=暗7(国際標準比率)。判別は長さの比
+ *  - フレーム: VVV(同期・短点校正) CT(本文開始) 本文 [ラタ] AR(周回終端)
+ *              リピート最終・停止時に SK
+ *  - 和文/欧文切替: ホレ(--.--)で和文開始, ラタ(...-.)で欧文復帰。
+ *    ※ン(.-.-.)はARと同符号のため、ARは欧文モードでのみ解釈する。
+ *      送信側は和文のまま本文が終わる場合、必ずラタ→ARの順で打つ
+ *  - 誤り対策: FEC/チェックサム廃止。周回(CT〜AR)ごとの文字列を
+ *    位置照合し、2周一致で確定・3周以降は多数決(周回冗長)
  * ================================================================ */
 const FC = (() => {
   'use strict';
 
-  const PREAMBLE_BITS = 24;              // 1,0 繰り返し
-  const SYNC = 0x2DD4;                   // 16bit 同期語
-  const SYNC_BITS = 16;
-  const MAX_PAYLOAD = 255;
+  /* ---------- 和文モールス符号表 ---------- */
+  const WABUN = {
+    'ア':'--.--','イ':'.-','ウ':'..-','エ':'-.---','オ':'.-...',
+    'カ':'.-..','キ':'-.-..','ク':'...-','ケ':'-.--','コ':'----',
+    'サ':'-.-.-','シ':'--.-.','ス':'---.-','セ':'.---.','ソ':'---.',
+    'タ':'-.','チ':'..-.','ツ':'.--.','テ':'.-.--','ト':'..-..',
+    'ナ':'.-.','ニ':'-.-.','ヌ':'....','ネ':'--.-','ノ':'..--',
+    'ハ':'-...','ヒ':'--..-','フ':'--..','ヘ':'.','ホ':'-..',
+    'マ':'-..-','ミ':'..-.-','ム':'-','メ':'-...-','モ':'-..-.',
+    'ヤ':'.--','ユ':'-..--','ヨ':'--',
+    'ラ':'...','リ':'--.','ル':'-.--.','レ':'---','ロ':'.-.-',
+    'ワ':'-.-','ヰ':'.-..-','ヱ':'.--..','ヲ':'.---',
+    'ン':'.-.-.','゛':'..','゜':'..--.','ー':'.--.-'
+  };
+  /* ---------- 国際モールス符号表 ---------- */
+  const INTL = {
+    'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....',
+    'I':'..','J':'.---','K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.',
+    'Q':'--.-','R':'.-.','S':'...','T':'-','U':'..-','V':'...-','W':'.--','X':'-..-',
+    'Y':'-.--','Z':'--..',
+    '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+    '6':'-....','7':'--...','8':'---..','9':'----.',
+    '?':'..--..','-':'-....-'
+  };
+  /* ---------- プロサイン(手続き符号) ---------- */
+  const PRO = {
+    CT: '-.-.-',    // 本文開始(=和文のサと同型。本文開始前のみ解釈)
+    AR: '.-.-.',    // 周回終端(=和文のンと同型。欧文モードでのみ解釈)
+    SK: '...-.-',   // 全送信終了
+    DO: '--.--',    // ホレ: 和文開始
+    SN: '...-.'     // ラタ: 和文終了・欧文復帰
+  };
+  const WABUN_REV = {}, INTL_REV = {};
+  for (const k in WABUN) WABUN_REV[WABUN[k]] = k;
+  for (const k in INTL) INTL_REV[INTL[k]] = k;
 
-  /* ---------- 6ビット電文符号表 ---------- */
-  const SYMS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -?*'; // index = 符号値
-  const EOT = 40;                        // 終端符号(制御)
-  const SYM_SP = 36, SYM_STAR = 39;
+  /* ---------- 濁点・半濁点の分解/合成、小書き正規化 ---------- */
+  const DAKU = {'ガ':'カ','ギ':'キ','グ':'ク','ゲ':'ケ','ゴ':'コ',
+                'ザ':'サ','ジ':'シ','ズ':'ス','ゼ':'セ','ゾ':'ソ',
+                'ダ':'タ','ヂ':'チ','ヅ':'ツ','デ':'テ','ド':'ト',
+                'バ':'ハ','ビ':'ヒ','ブ':'フ','ベ':'ヘ','ボ':'ホ','ヴ':'ウ'};
+  const HANDAKU = {'パ':'ハ','ピ':'ヒ','プ':'フ','ペ':'ヘ','ポ':'ホ'};
+  const SMALL = {'ァ':'ア','ィ':'イ','ゥ':'ウ','ェ':'エ','ォ':'オ',
+                 'ャ':'ヤ','ュ':'ユ','ョ':'ヨ','ッ':'ツ','ヮ':'ワ'};
+  const DAKU_REV = {}, HANDAKU_REV = {};
+  for (const k in DAKU) DAKU_REV[DAKU[k]] = k;
+  for (const k in HANDAKU) HANDAKU_REV[HANDAKU[k]] = k;
 
-  function packSymbols(symbols) {        // 6bit列 → バイト列(末尾0詰め)
-    const nBits = symbols.length * 6;
-    const out = new Uint8Array(Math.ceil(nBits / 8));
-    let p = 0;
-    for (const s of symbols) {
-      for (let i = 5; i >= 0; i--) {
-        if ((s >> i) & 1) out[p >> 3] |= 0x80 >> (p & 7);
-        p++;
-      }
-    }
-    return out;
+  function hiraToKata(s) {
+    return s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
   }
-  function unpackSymbols(bytes) {        // → {symbols(EOT除く), sawEot}
-    const symbols = []; let sawEot = false;
-    const nBits = bytes.length * 8;
-    for (let p = 0; p + 6 <= nBits; p += 6) {
-      let v = 0;
-      for (let i = 0; i < 6; i++) {
-        const bp = p + i;
-        v = (v << 1) | ((bytes[bp >> 3] >> (7 - (bp & 7))) & 1);
-      }
-      if (v === EOT) { sawEot = true; break; }
-      symbols.push(v);
-    }
-    return { symbols, sawEot };
+  function isKana(c) { return /[ァ-ヴー]/.test(c); }
+  function decomposeKana(c) {          // 小書き正規化+濁点分解
+    c = SMALL[c] || c;
+    if (DAKU[c]) return [DAKU[c], '゛'];
+    if (HANDAKU[c]) return [HANDAKU[c], '゜'];
+    return [c];
+  }
+  function morseOf(ch) {               // 表示用(・−表記)。スペースは/
+    if (ch === ' ') return '/';
+    let codes;
+    if (isKana(ch)) codes = decomposeKana(ch).map(p => WABUN[p] || '?');
+    else codes = [INTL[ch] || '?'];
+    return codes.join(' ').replace(/\./g, '・').replace(/-/g, '−');
+  }
+  function displayCells(cells, mode) { // 受信セル列 → 表示文字列
+    if (mode === 'raw') return cells.map(c => morseOf(c.ch)).join(' ');
+    return cells.map(c => c.ch).join('');
   }
 
-  /* ---------- カタカナ⇔ローマ字(完全可逆1対1) ---------- */
+  /* ---------- ローマ字→カナ入力補助用の対応表(伝送には不使用) ---------- */
   const K2R = {
     'ア':'A','イ':'I','ウ':'U','エ':'E','オ':'O',
     'カ':'KA','キ':'KI','ク':'KU','ケ':'KE','コ':'KO',
@@ -514,208 +552,106 @@ const FC = (() => {
   };
   const R2K = {};
   for (const k in K2R) R2K[K2R[k]] = k;
-  R2K['XTU'] = 'ッ';                     // ッ単独形(送信側の特殊符号化に対応)
-  const DOUBLABLE = 'KSTHMYRWGZDBPVF';   // っ を子音重複で表せる子音(N,Xは除外)
+  R2K['XTU'] = 'ッ';
 
-  function hiraToKata(s) {
-    return s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
-  }
-
-  function kanaToRomaji(word) {          // カタカナ語 → 伝送ローマ字
-    let out = '';
-    for (let i = 0; i < word.length; i++) {
-      const c = word[i];
-      if (c === 'ッ') {
-        const rest = word.slice(i + 1);
-        const nextTok = rest ? (K2R[rest.slice(0, 2)] || K2R[rest[0]] || null) : null;
-        const h = nextTok ? nextTok[0] : null;
-        out += (h && DOUBLABLE.includes(h)) ? h : 'XTU';
-        continue;
-      }
-      const two = K2R[word.substr(i, 2)];
-      if (two !== undefined && word.substr(i, 2).length === 2) { out += two; i++; continue; }
-      const one = K2R[c];
-      if (one !== undefined) { out += one; continue; }
-      out += c;                          // 数字・?・-・英字はそのまま
-    }
-    return out;
-  }
-
-  function romajiToKana(s) {             // 伝送ローマ字 → カタカナ(貪欲最長一致・寛容)
-    let out = '', i = 0;
-    while (i < s.length) {
-      const c = s[i];
-      if (i + 1 < s.length && s[i + 1] === c && DOUBLABLE.includes(c)) {
-        out += 'ッ'; i++; continue;      // 子音重複 → 促音(NNは除外済み)
-      }
-      let matched = false;
-      for (let L = 3; L >= 1; L--) {
-        if (i + L <= s.length) {
-          const k = R2K[s.substr(i, L)];
-          if (k) { out += k; i += L; matched = true; break; }
-        }
-      }
-      if (!matched) { out += c; i++; }   // 数字・?・未確定子音は素通し(速報層で許容)
-    }
-    return out;
-  }
-
-  /* ---------- 電文(単語列) ⇔ 符号列 ---------- */
-  function encodeWords(words) {          // カタカナ/英数字の単語配列 → 符号列(EOT付き)
-    const symbols = [];
-    let first = true;
+  /* ---------- 送信列の構築 ---------- */
+  // 1周(VVV CT 本文 [ラタ] AR)の符号列 → [{code, gap(前置の暗単位)}]
+  function buildItems(words) {
+    const items = [];
+    const add = (code, gap) => items.push({ code, gap });
+    add(INTL.V, 0); add(INTL.V, 3); add(INTL.V, 3);   // 同期・校正
+    add(PRO.CT, 3);                                    // 本文開始
+    let mode = 'wabun';                                // CT後の既定は和文
+    let firstWord = true, body = 0;
     for (let w of words) {
       w = (w || '').trim();
-      if (!w) continue;                  // 空欄はスキップ
-      const kata = hiraToKata(w);
-      if (!first) symbols.push(SYM_SP);
-      first = false;
-      if (/[A-Z]/.test(kata)) symbols.push(SYM_STAR);  // 英字を含む語 → *マーカー
-      const roma = kanaToRomaji(kata);
-      for (const ch of roma) {
-        const s = SYMS.indexOf(ch);
-        if (s < 0) throw new Error('invalid char: ' + ch);
-        symbols.push(s);
+      if (!w) continue;
+      let gapNext = firstWord ? 3 : 7;                 // 語間=7単位
+      firstWord = false;
+      for (const c of w) {
+        const m = isKana(c) ? 'wabun' : 'intl';
+        if (m !== mode) {                              // 文字種で自動切替
+          add(m === 'wabun' ? PRO.DO : PRO.SN, gapNext);
+          gapNext = 3; mode = m;
+        }
+        const parts = m === 'wabun' ? decomposeKana(c) : [c];
+        for (const p of parts) {
+          const code = m === 'wabun' ? WABUN[p] : INTL[p];
+          if (!code) throw new Error('invalid char: ' + c);
+          add(code, gapNext); gapNext = 3; body++;
+        }
       }
     }
-    if (symbols.length === 0) throw new Error('empty');
-    symbols.push(EOT);
-    return symbols;
+    if (body === 0) throw new Error('empty');
+    if (mode !== 'intl') add(PRO.SN, 3);               // ン≠AR保証のため欧文復帰
+    add(PRO.AR, 3);
+    return { items, body };
   }
-  function symbolsToWords(symbols) {     // 符号列(EOTなし) → [{raw, kana}]
-    const raw = symbols.map(s => SYMS[s] || '').join('');
-    return raw.split(' ').map(w =>
-      w.startsWith('*') ? { raw: w, kana: w.slice(1) }       // *語は無変換表示
-                        : { raw: w, kana: romajiToKana(w) });
-  }
-  function displayText(symbols, mode) {  // mode: 'kana' | 'raw'
-    return symbolsToWords(symbols).map(w => mode === 'raw' ? w.raw : w.kana).join(' ');
-  }
-
-  /* ---------- CRC-16/CCITT-FALSE ---------- */
-  function crc16(bytes) {
-    let crc = 0xFFFF;
-    for (const b of bytes) {
-      crc ^= b << 8;
-      for (let i = 0; i < 8; i++)
-        crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
-    }
-    return crc;
-  }
-
-  /* ---------- Hamming(8,4) SECDED ---------- */
-  const HAM_ENC = new Uint8Array(16);
-  const HAM_DEC = new Int8Array(256).fill(-1);
-  (function buildHamming() {
-    for (let n = 0; n < 16; n++) {
-      const d1 = (n >> 3) & 1, d2 = (n >> 2) & 1, d3 = (n >> 1) & 1, d4 = n & 1;
-      const p1 = d1 ^ d2 ^ d4, p2 = d1 ^ d3 ^ d4, p3 = d2 ^ d3 ^ d4;
-      let cw7 = (p1 << 6) | (p2 << 5) | (d1 << 4) | (p3 << 3) | (d2 << 2) | (d3 << 1) | d4;
-      let par = 0; for (let i = 0; i < 7; i++) par ^= (cw7 >> i) & 1;
-      HAM_ENC[n] = (cw7 << 1) | par;
-    }
-    for (let v = 0; v < 256; v++) {
-      for (let n = 0; n < 16; n++) {
-        const d = popcount(v ^ HAM_ENC[n]);
-        if (d <= 1) { HAM_DEC[v] = n; break; }
+  function itemsToSeq(items) {         // → 1単位ごとの明暗列(0/1)
+    const seq = [];
+    for (const it of items) {
+      for (let i = 0; i < it.gap; i++) seq.push(0);
+      for (let i = 0; i < it.code.length; i++) {
+        if (i) seq.push(0);
+        const n = it.code[i] === '.' ? 1 : 3;
+        for (let j = 0; j < n; j++) seq.push(1);
       }
     }
-  })();
-  function popcount(x) { let c = 0; while (x) { c += x & 1; x >>= 1; } return c; }
-
-  function fecEncode(bytes) {
-    const out = new Uint8Array(bytes.length * 2);
-    for (let i = 0; i < bytes.length; i++) {
-      out[2 * i] = HAM_ENC[(bytes[i] >> 4) & 0xF];
-      out[2 * i + 1] = HAM_ENC[bytes[i] & 0xF];
-    }
-    return out;
+    return seq;
   }
-  function fecDecode(coded) {
-    const n = coded.length >> 1;
-    const bytes = new Uint8Array(n);
-    let errors = 0, fatal = 0;
-    for (let i = 0; i < n; i++) {
-      let hi = HAM_DEC[coded[2 * i]], lo = HAM_DEC[coded[2 * i + 1]];
-      if (coded[2 * i] !== HAM_ENC[hi >= 0 ? hi : 0]) errors += (hi >= 0) ? 1 : 0;
-      if (coded[2 * i + 1] !== HAM_ENC[lo >= 0 ? lo : 0]) errors += (lo >= 0) ? 1 : 0;
-      if (hi < 0) { hi = 0; fatal++; }
-      if (lo < 0) { lo = 0; fatal++; }
-      bytes[i] = (hi << 4) | lo;
-    }
-    return { bytes, errors, fatal };
+  function buildTx(words, opts = {}) { // {seq, units, chars(本文符号数)}
+    const { items, body } = buildItems(words);
+    let seq = itemsToSeq(items);
+    if (opts.sk) seq = seq.concat(itemsToSeq([{ code: PRO.SK, gap: 3 }]));
+    return { seq, units: seq.length, chars: body };
+  }
+  function buildSkSeq() {              // 停止時のSKコーダ
+    return itemsToSeq([{ code: PRO.SK, gap: 3 }]);
+  }
+  function estimateSeconds(units, unitMs) {
+    return units * unitMs / 1000 + 1.6;   // リードイン込み概算
   }
 
-  /* ---------- 送信ビット列の構築 ---------- */
-  function buildFrameBits(symbols) {     // 符号列(EOT込み) → ビット列
-    const payload = packSymbols(symbols);
-    if (payload.length === 0) throw new Error('empty');
-    if (payload.length > MAX_PAYLOAD) throw new Error('payload too long: ' + payload.length);
-    const raw = new Uint8Array(1 + payload.length + 2);
-    raw[0] = payload.length;
-    raw.set(payload, 1);
-    const c = crc16(raw.subarray(0, 1 + payload.length));
-    raw[1 + payload.length] = (c >> 8) & 0xFF;
-    raw[2 + payload.length] = c & 0xFF;
-    const coded = fecEncode(raw);
-
-    const bits = [];
-    for (let i = 0; i < PREAMBLE_BITS; i++) bits.push(i % 2 === 0 ? 1 : 0);
-    for (let i = SYNC_BITS - 1; i >= 0; i--) bits.push((SYNC >> i) & 1);
-    for (const b of coded) for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1);
-    return bits;
-  }
-
-  // マンチェスター: 1=[暗,明] 0=[明,暗]。戻り値: ハーフビット毎の輝度レベル(0/1)
-  function bitsToHalfbits(bits) {
-    const hb = [];
-    for (const b of bits) { if (b) { hb.push(0, 1); } else { hb.push(1, 0); } }
-    return hb;
-  }
-
-  function estimateSeconds(symbolCount, bps) {
-    const nBytes = Math.ceil(symbolCount * 6 / 8);
-    const bits = PREAMBLE_BITS + SYNC_BITS + (1 + nBytes + 2) * 16;
-    return bits / bps + 1.4;             // リードイン/テール込み概算
-  }
-
-  /* ---------- 復調器 ----------
-   * feed(tMs, luma) を毎フレーム呼ぶだけ。ビットレートはプリアンブルから自動推定。
+  /* ---------- 復調器(パルス幅復調+周回冗長) ----------
+   * feed(tMs, luma) を毎フレーム呼ぶ。短点長はVVVから自動測定。
    * onEvent:
-   *   {type:'status', state}
-   *   {type:'live', symbols, sawEot}                    … 速報層(バイト確定毎)
-   *   {type:'message', symbols, text, crcOk, eotOk, …}  … 確定層 */
+   *   {type:'status', state}  state: no_signal|idle|synced|body
+   *   {type:'update', cells:[{ch,st}], cycles}  st:'prov'(暫定)|'conf'(確定)
+   *   {type:'cycle', n}                          周回受信完了
+   *   {type:'final', reason:'sk'|'lost', cells, text}  電文確定 */
   class Demodulator {
     constructor(onEvent, opts = {}) {
       this.onEvent = onEvent || (() => {});
-      this.WINDOW_MS = opts.windowMs || 1700;
+      this.WINDOW_MS = opts.windowMs || 2300;   // min/max追跡窓
       this.MIN_CONTRAST = opts.minContrast || 8;
       this.HYST = opts.hyst || 0.11;
-      this.T_MIN = 22; this.T_MAX = 900;
-      this.LOCK_NEED = 5;
-      this.reset();
+      this.U_MIN = 25; this.U_MAX = 420;        // 許容短点長(ms)
       this.samples = [];
+      this.reset();
     }
     reset() {
       this.win = [];
       this.bin = -1;
       this.lastCross = null;
-      this.edges = [];
+      this.lastEdgeT = 0;
+      if (this.cycles && (this.cycles.length || this.current.length)) this._finalize('lost');
       this.state = 'no_signal';
-      this.T = 0;
-      this.lastMid = 0;
-      this.pendingBoundary = false;
-      this.bitBuf = [];
-      this.frameBits = null;
-      this.frameNeed = 0;
-      this.frameLen = 0;
-      this.livePayload = [];
+      this.u = 0;
+      this.ons = [];
+      this.elems = '';
+      this.mode = 'intl';
+      this.charClosed = true;
+      this.spaceEmitted = true;
+      this.current = [];
+      this.cycles = [];
       this._emitState();
     }
-    _emitState() { this.onEvent({ type: 'status', state: this.state, tBit: this.T }); }
+    clearMessage() { this.current = []; this.cycles = []; this._update(); }
+    _emitState() { this.onEvent({ type: 'status', state: this.state, u: this.u }); }
     _setState(s) { if (s !== this.state) { this.state = s; this._emitState(); } }
 
     feed(t, luma) {
+      // --- 適応閾値(移動min/max) ---
       this.win.push({ t, l: luma });
       while (this.win.length && t - this.win[0].t > this.WINDOW_MS) this.win.shift();
       let mn = Infinity, mx = -Infinity;
@@ -728,27 +664,38 @@ const FC = (() => {
         this._pushSample(t, luma, this.bin);
         return;
       }
-      if (this.state === 'no_signal') this._setState('idle');
+      if (this.state === 'no_signal') { this._setState('idle'); this.lastEdgeT = t; }
 
       const hi = this.thrMid + range * this.HYST;
       const lo = this.thrMid - range * this.HYST;
       let newBin = this.bin;
       if (this.bin !== 1 && luma > hi) newBin = 1;
       else if (this.bin !== 0 && luma < lo) newBin = 0;
-      if (this.bin === -1) { this.bin = newBin === -1 ? (luma > this.thrMid ? 1 : 0) : newBin; this.lastCross = { t, l: luma }; this._pushSample(t, luma, this.bin); return; }
+      if (this.bin === -1) {
+        this.bin = newBin === -1 ? (luma > this.thrMid ? 1 : 0) : newBin;
+        this.lastCross = { t, l: luma }; this.lastEdgeT = t;
+        this._pushSample(t, luma, this.bin);
+        return;
+      }
 
       if (newBin !== this.bin) {
-        // 交差時刻を線形補間(中央値thrMid基準で時刻バイアス除去)
+        // 交差時刻を線形補間(中央値thrMid基準)
         const p = this.lastCross;
         let tEdge = t;
         if (p && p.l !== luma) {
           const f = (this.thrMid - p.l) / (luma - p.l);
           tEdge = p.t + Math.max(0, Math.min(1, f)) * (t - p.t);
         }
+        const level = this.bin, dur = tEdge - this.lastEdgeT;
         this.bin = newBin;
-        this._onEdge(tEdge, newBin === 1 ? +1 : -1);
-      } else if (this.state === 'frame' || this.state === 'locked') {
-        if (t - this.lastMid > this.T * 3) { this._abort(); }
+        this._onSegment(level, dur);
+        this.lastEdgeT = tEdge;
+      } else if (this.bin === 0 && this.u) {
+        // エッジ待ちの暗期間: 文字/語/周回の境界を即時確定
+        const off = t - this.lastEdgeT;
+        if (!this.charClosed && off > 2.2 * this.u) this._closeChar();
+        if (this.state === 'body' && !this.spaceEmitted && off > 5.5 * this.u) this._emitSpace();
+        if (this.state === 'body' && off > 14 * this.u && this.current.length) this._endCycle();
       }
       this.lastCross = { t, l: luma };
       this._pushSample(t, luma, this.bin);
@@ -757,143 +704,154 @@ const FC = (() => {
       this.samples.push({ t, l, bin });
       while (this.samples.length && t - this.samples[0].t > 4000) this.samples.shift();
     }
-    _abort() {
-      this.edges = []; this.bitBuf = []; this.frameBits = null;
-      this.pendingBoundary = false; this.T = 0;
-      this.frameLen = 0; this.livePayload = [];
-      this._setState('idle');
+
+    _onSegment(level, dur) {
+      if (this.state === 'no_signal') return;
+      if (level === 1) {                       // 明期間 → 短点/長点
+        if (this.state === 'idle') this._calib(dur);
+        if (!this.u) return;
+        if (dur < 0.35 * this.u) return;       // グリッチ
+        const isDot = dur < 2 * this.u;
+        this.elems += isDot ? '.' : '-';
+        const est = isDot ? dur : dur / 3;     // 短点長へ追従
+        if (est > this.U_MIN * 0.6 && est < this.U_MAX * 1.4)
+          this.u = 0.87 * this.u + 0.13 * est;
+        this.charClosed = false;
+      } else {                                 // 暗期間 → ギャップ分類
+        if (!this.u) return;
+        if (dur >= 2 * this.u && !this.charClosed) this._closeChar();
+        if (dur >= 5.5 * this.u && this.state === 'body' && !this.spaceEmitted) this._emitSpace();
+      }
     }
 
-    _onEdge(t, dir) {
-      if (this.state === 'idle') {
-        this.edges.push({ t, dir });
-        if (this.edges.length > 40) this.edges.shift();
-        this._tryLock();
-        return;
+    /* VVVで短点長を校正: 候補uを走査して短点群+長点群の最良クラスタを探す
+     * (信号立ち上がり時の閾値ウォームアップで混入するゴミセグメントに耐性) */
+    _calib(dur) {
+      if (dur < this.U_MIN * 0.4 || dur > this.U_MAX * 4.6) return;  // 論外は無視
+      this.ons.push(dur);
+      if (this.ons.length > 16) this.ons.shift();
+      if (this.ons.length < 8) return;
+      let best = null, bestScore = 0;
+      for (const cand of this.ons) {
+        if (cand < this.U_MIN || cand > this.U_MAX) continue;
+        const dots = this.ons.filter(d => d > 0.65 * cand && d < 1.45 * cand);
+        const dashes = this.ons.filter(d => d > 2.3 * cand && d < 3.9 * cand);
+        const score = dots.length + dashes.length;
+        if (dots.length >= 5 && dashes.length >= 2 && score > bestScore) {
+          dots.sort((a, b) => a - b);
+          best = dots[dots.length >> 1];
+          bestScore = score;
+        }
       }
-      if (this.state !== 'locked' && this.state !== 'frame') return;
+      if (best && bestScore >= 8) {
+        this.u = best;
+        this.elems = '';
+        this.mode = 'intl';
+        this._setState('synced');
+      }
+    }
 
-      const dt = t - this.lastMid;
-      const T = this.T;
-      if (this.pendingBoundary) {
-        if (dt >= 0.72 * T && dt <= 1.55 * T) {
-          this.pendingBoundary = false;
-          this._midEdge(t, dir, dt);
-        } else if (dt < 0.72 * T) {
-          /* グリッチ: 無視 */
-        } else { this._abort(); }
-        return;
+    _closeChar() {
+      this.charClosed = true;
+      const code = this.elems;
+      this.elems = '';
+      if (!code) return;
+      if (this.state === 'synced') {
+        if (code === PRO.CT) {                 // 本文開始
+          this.mode = 'wabun';
+          this.current = [];
+          this.spaceEmitted = true;
+          this._setState('body');
+          this._update();
+        } else if (code === PRO.SK) {
+          this._finalize('sk');
+        }
+        return;                                // V等は無視
       }
-      if (dt < 0.2 * T) {
-        /* グリッチ */
-      } else if (dt < 0.72 * T) {
-        this.pendingBoundary = true;
-      } else if (dt <= 1.55 * T) {
-        this._midEdge(t, dir, dt);
+      if (this.state !== 'body') return;
+      if (this.mode === 'wabun') {
+        if (code === PRO.SN) { this.mode = 'intl'; return; }   // ラタ: 欧文復帰
+        const ch = WABUN_REV[code];
+        if (ch === '゛' || ch === '゜') this._applyMark(ch);
+        else this._pushChar(ch || '□');
       } else {
-        this._abort();
-        this._onEdge(t, dir);
+        if (code === PRO.DO) { this.mode = 'wabun'; return; }  // ホレ: 和文開始
+        if (code === PRO.AR) { this._endCycle(); return; }
+        if (code === PRO.SK) { this._finalize('sk'); return; }
+        if (code === PRO.CT) { this.current = []; this._update(); return; }
+        this._pushChar(INTL_REV[code] || '□');
       }
     }
-    _midEdge(t, dir, dt) {
-      this.T = 0.85 * this.T + 0.15 * dt;
-      this.lastMid = t;
-      this._pushBit(dir > 0 ? 1 : 0);
+    _pushChar(ch) {
+      this.current.push(ch);
+      this.spaceEmitted = false;
+      this._update();
     }
-
-    _tryLock() {
-      const e = this.edges;
-      const K = this.LOCK_NEED;
-      if (e.length < K + 1) return;
-      const tail = e.slice(-(K + 1));
-      const ivs = [];
-      for (let i = 1; i < tail.length; i++) {
-        ivs.push(tail[i].t - tail[i - 1].t);
-        if (tail[i].dir === tail[i - 1].dir) return;
+    _applyMark(mark) {                         // 濁点/半濁点: 直前文字に合成
+      for (let i = this.current.length - 1; i >= 0; i--) {
+        const c = this.current[i];
+        if (c === ' ') break;
+        const comp = mark === '゛' ? DAKU_REV[c] : HANDAKU_REV[c];
+        if (comp) { this.current[i] = comp; this._update(); return; }
+        break;
       }
-      const sorted = [...ivs].sort((a, b) => a - b);
-      const med = sorted[sorted.length >> 1];
-      if (med < this.T_MIN || med > this.T_MAX) return;
-      for (const iv of ivs) if (Math.abs(iv - med) > 0.40 * med) return;
-      this.T = med;
-      this.lastMid = tail[tail.length - 1].t;
-      this.pendingBoundary = false;
-      this.bitBuf = [];
-      this.bitBuf.push(tail[tail.length - 1].dir > 0 ? 1 : 0);
-      this.edges = [];
-      this._setState('locked');
+      this.current.push(mark);
+      this._update();
     }
-
-    _pushBit(b) {
-      if (this.state === 'locked') {
-        this.bitBuf.push(b);
-        if (this.bitBuf.length > 64) this.bitBuf.shift();
-        if (this.bitBuf.length >= SYNC_BITS) {
-          let v = 0;
-          const s = this.bitBuf.slice(-SYNC_BITS);
-          for (const bit of s) v = ((v << 1) | bit) & 0xFFFF;
-          if (popcount(v ^ SYNC) <= 1) {
-            this.frameBits = [];
-            this.frameNeed = 16;
-            this.frameLen = 0;
-            this.livePayload = [];
-            this._setState('frame');
-          }
-        }
-      } else if (this.state === 'frame') {
-        this.frameBits.push(b);
-        if (this.frameBits.length === 16 && this.frameNeed === 16) {
-          const lenByte = this._decodeBytes(this.frameBits.slice(0, 16));
-          const len = lenByte.bytes[0];
-          if (len < 1 || len > MAX_PAYLOAD) { this._abort(); return; }
-          this.frameLen = len;
-          this.frameNeed = (1 + len + 2) * 16;
-        } else if (this.frameNeed > 16 && this.frameBits.length % 16 === 0) {
-          // 速報層: データバイト確定毎に電文符号を逐次デコード
-          const byteIdx = this.frameBits.length / 16 - 1;   // 0=LEN
-          if (byteIdx >= 1 && byteIdx <= this.frameLen) {
-            const dec = this._decodeBytes(this.frameBits.slice(byteIdx * 16, byteIdx * 16 + 16));
-            this.livePayload.push(dec.bytes[0]);
-            const up = unpackSymbols(Uint8Array.from(this.livePayload));
-            this.onEvent({ type: 'live', symbols: up.symbols, sawEot: up.sawEot });
-          }
-        }
-        if (this.frameNeed > 16 && this.frameBits.length >= this.frameNeed) {
-          this._finishFrame();
-        }
+    _emitSpace() {
+      this.spaceEmitted = true;
+      if (this.current.length && this.current[this.current.length - 1] !== ' ') {
+        this.current.push(' ');
+        this._update();
       }
     }
-    _decodeBytes(bits) {
-      const coded = new Uint8Array(bits.length >> 3);
-      for (let i = 0; i < coded.length; i++) {
-        let v = 0;
-        for (let j = 0; j < 8; j++) v = (v << 1) | bits[i * 8 + j];
-        coded[i] = v;
+    _endCycle() {                              // AR受信 or 長ギャップ: 周回確定
+      while (this.current.length && this.current[this.current.length - 1] === ' ')
+        this.current.pop();
+      if (this.current.length) {
+        this.cycles.push(this.current);
+        if (this.cycles.length > 9) this.cycles.shift();
+        this.onEvent({ type: 'cycle', n: this.cycles.length });
       }
-      return fecDecode(coded);
+      this.current = [];
+      this.mode = 'intl';
+      this._setState('synced');
+      this._update();
     }
-    _finishFrame() {
-      const dec = this._decodeBytes(this.frameBits);
-      const raw = dec.bytes;
-      const len = raw[0];
-      const payload = raw.subarray(1, 1 + len);
-      const gotCrc = (raw[1 + len] << 8) | raw[2 + len];
-      const crcOk = crc16(raw.subarray(0, 1 + len)) === gotCrc && dec.fatal === 0;
-      const up = unpackSymbols(payload);
-      const text = up.symbols.map(s => SYMS[s] || '').join('');
-      this.onEvent({ type: 'message', symbols: up.symbols, text,
-                     crcOk, eotOk: up.sawEot, errors: dec.errors, fatal: dec.fatal, tBit: this.T });
-      this._abort();
+    /* 周回冗長: 位置ごとの多数決。2票以上一致で確定(conf) */
+    _consensus() {
+      const lists = [...this.cycles];
+      if (this.current.length) lists.push(this.current);
+      let maxLen = 0;
+      for (const l of lists) maxLen = Math.max(maxLen, l.length);
+      const cells = [];
+      for (let i = 0; i < maxLen; i++) {
+        const cnt = {};
+        for (const l of lists) if (i < l.length) cnt[l[i]] = (cnt[l[i]] || 0) + 1;
+        let best = null, bn = 0;
+        for (const c in cnt) if (cnt[c] > bn) { bn = cnt[c]; best = c; }
+        cells.push({ ch: best, st: bn >= 2 ? 'conf' : 'prov' });
+      }
+      return { cells, text: cells.map(c => c.ch).join('') };
+    }
+    _update() {
+      const cons = this._consensus();
+      this.onEvent({ type: 'update', cells: cons.cells, cycles: this.cycles.length });
+    }
+    _finalize(reason) {
+      const cons = this._consensus();
+      this.current = [];
+      this.cycles = [];
+      if (cons.cells.length)
+        this.onEvent({ type: 'final', reason, cells: cons.cells, text: cons.text });
+      if (reason === 'sk') { this._setState('synced'); this._update(); }
     }
   }
 
-  return { PREAMBLE_BITS, SYNC, SYNC_BITS, MAX_PAYLOAD,
-           SYMS, EOT, SYM_SP, SYM_STAR,
-           packSymbols, unpackSymbols,
-           hiraToKata, kanaToRomaji, romajiToKana, R2K,
-           encodeWords, symbolsToWords, displayText,
-           crc16, fecEncode, fecDecode, HAM_ENC, HAM_DEC,
-           buildFrameBits, bitsToHalfbits, estimateSeconds, Demodulator };
+  return { WABUN, INTL, PRO, WABUN_REV, INTL_REV,
+           hiraToKata, isKana, decomposeKana, morseOf, displayCells, R2K,
+           buildItems, itemsToSeq, buildTx, buildSkSeq, estimateSeconds,
+           Demodulator };
 })();
 if (typeof module !== 'undefined') module.exports = FC;
 /* ==== MABATAKI SIGNAL CORE END ==== */
@@ -1019,40 +977,37 @@ function gatherWords() {
 
 function updateEstimate() {
   const words = gatherWords();
-  const bps = +$('txRate').value;
-  let bytes = 0, secs = null, txt = '';
+  const unitMs = +$('txRate').value;
+  let chars = 0, secs = null, txt = '';
   if (words.length) {
     try {
-      const symbols = FC.encodeWords(words);
-      bytes = Math.ceil(symbols.length * 6 / 8);
-      if (bytes > FC.MAX_PAYLOAD) txt = `⚠ 電文が長すぎます(${bytes}/255バイト)`;
-      else {
-        secs = FC.estimateSeconds(symbols.length, bps);
-        txt = `${words.length}語 / ${symbols.length}符号 / ${bytes}バイト`;
-      }
+      const tx = FC.buildTx(words, { sk: true });
+      chars = tx.chars;
+      secs = FC.estimateSeconds(tx.units, unitMs);
+      txt = `${words.length}語 / ${tx.chars}符号 / ${tx.units}単位(短点${unitMs}ms)`;
     } catch (e) {}
   }
   $('txEstimate').textContent = txt;
-  $('nxData').textContent = words.length === 0 ? '---' : String(Math.min(bytes, 999)).padStart(3, '0');
+  $('nxData').textContent = words.length === 0 ? '---' : String(Math.min(chars, 999)).padStart(3, '0');
   if (!txRunning)
     $('nxTime').textContent = secs === null ? '--.-' : (secs >= 100 ? String(Math.round(secs)) : secs.toFixed(1));
 }
 
-/* ---- bps ダイヤルセレクタ(4灯) ---- */
-const BPS_VALUES = [2, 5, 10, 15];
-function setBps(v) {
+/* ---- 短点長ダイヤルセレクタ(4灯) ---- */
+const UNIT_VALUES = [150, 100, 70, 50];
+function setUnit(v) {
   $('txRate').value = v;
-  const idx = Math.max(0, BPS_VALUES.indexOf(v));
+  const idx = Math.max(0, UNIT_VALUES.indexOf(v));
   $('dialKnob').style.transform = `rotate(${-45 + idx * 30}deg)`;
   document.querySelectorAll('.bpsOpt').forEach(o => o.classList.toggle('sel', +o.dataset.v === v));
   updateEstimate();
 }
-document.querySelectorAll('.bpsOpt').forEach(o => o.addEventListener('click', () => setBps(+o.dataset.v)));
+document.querySelectorAll('.bpsOpt').forEach(o => o.addEventListener('click', () => setUnit(+o.dataset.v)));
 $('bpsDial').onclick = () => {
-  const i = BPS_VALUES.indexOf(+$('txRate').value);
-  setBps(BPS_VALUES[(i + 1) % BPS_VALUES.length]);
+  const i = UNIT_VALUES.indexOf(+$('txRate').value);
+  setUnit(UNIT_VALUES[(i + 1) % UNIT_VALUES.length]);
 };
-setBps(2);
+setUnit(100);
 
 /* ---- ビーコン音(電信音) ---- */
 const beacon = (() => {
@@ -1100,29 +1055,24 @@ setInterval(() => {
   $('lampPop').classList.toggle('on', !!(popWin && !popWin.closed));
 }, 800);
 
-/* ---- 送信実行 ---- */
+/* ---- 送信実行(モールス・パルス幅変調) ---- */
 $('txStart').onclick = async () => {
   const words = gatherWords();
-  let bits;
+  const unitMs = +$('txRate').value;
+  const loop = $('txLoop').checked;
+  let tx;
   try {
-    const symbols = FC.encodeWords(words);
-    if (Math.ceil(symbols.length * 6 / 8) > FC.MAX_PAYLOAD) { showHint('電文が長すぎます(255バイト以内)'); return; }
-    bits = FC.buildFrameBits(symbols);
+    tx = FC.buildTx(words, { sk: !loop });   // 1回送信は末尾にSK
   } catch (e) {
     showHint(e.message === 'empty' ? '電文を入力してください' : '符号化できない文字があります');
     return;
   }
 
   beacon.ensure();
-  const bps = +$('txRate').value;
-  const halfT = 1000 / (2 * bps);
-  const hb = FC.bitsToHalfbits(bits);
-  const LEAD = Math.ceil(1800 / halfT), TAIL = Math.ceil(700 / halfT), GAP = Math.ceil(1600 / halfT);
-  const loop = $('txLoop').checked;
-
+  const LEAD = Math.ceil(1500 / unitMs), TAIL = 5, GAP = 12;   // 単位数
   const seq = [];
   for (let i = 0; i < LEAD; i++) seq.push(0);
-  seq.push(...hb);
+  seq.push(...tx.seq);
   for (let i = 0; i < TAIL; i++) seq.push(0);
   const gapLen = GAP;
 
@@ -1146,7 +1096,8 @@ $('txStart').onclick = async () => {
   const raf = usePop ? popWin.requestAnimationFrame.bind(popWin) : requestAnimationFrame;
   const caf = usePop ? popWin.cancelAnimationFrame.bind(popWin) : cancelAnimationFrame;
 
-  const t0 = performance.now();
+  let t0 = performance.now();
+  let seqCur = seq, loopCur = loop, coda = false;
   let cycle = 0, stopped = false;
   const totalPerCycle = seq.length + gapLen;
   const dataStart = LEAD;
@@ -1167,29 +1118,39 @@ $('txStart').onclick = async () => {
     if (stopped) return;
     if (usePop && popWin.closed) { stopTx(); return; }
     const elapsed = performance.now() - t0;
-    let idx = Math.floor(elapsed / halfT);
-    if (loop) { cycle = Math.floor(idx / totalPerCycle); idx = idx % totalPerCycle; }
+    let idx = Math.floor(elapsed / unitMs);
+    if (loopCur) { cycle = Math.floor(idx / totalPerCycle); idx = idx % totalPerCycle; }
     let level = 0;
-    if (idx < seq.length) level = seq[idx];
+    if (idx < seqCur.length) level = seqCur[idx];
     setSurface(level);
     beacon.set(level);
 
     // ニキシー管: 残り時間カウントダウン(リピート時はギャップ中=再送までの秒数)
-    const remIdx = idx < seq.length ? seq.length - idx
-                 : (loop ? totalPerCycle - idx : 0);
-    const rem = Math.max(0, remIdx * halfT / 1000);
+    const remIdx = idx < seqCur.length ? seqCur.length - idx
+                 : (loopCur ? totalPerCycle - idx : 0);
+    const rem = Math.max(0, remIdx * unitMs / 1000);
     $('nxTime').textContent = rem >= 100 ? String(Math.round(rem)) : rem.toFixed(1);
 
     // UI重畳はリードイン(無信号の黒)中のみ。データ送出中は完全に非表示
-    if (idx < dataStart) setInfo(true, usePop
+    if (!coda && idx < dataStart) setInfo(true, usePop
       ? '⚠ 画面を直視しないでください ── クリックで停止'
       : '⚠ 画面を直視しないでください ── タップで停止');
     else setInfo(false);
-    if (!loop && idx >= seq.length + Math.min(gapLen, Math.ceil(500 / halfT))) { stopTx(); return; }
+    if (!loopCur && idx >= seqCur.length + Math.min(gapLen, Math.ceil(500 / unitMs))) { stopTx(); return; }
     txTimer = raf(frame);
   }
   txTimer = raf(frame);
   if (usePop) watch = setInterval(() => { if (popWin.closed && !stopped) stopTx(); }, 400);
+
+  function requestStop() {
+    // 停止時は手続き符号SKを打ってから止める。コーダ中の再タップは即時停止
+    if (coda || stopped) { stopTx(); return; }
+    coda = true;
+    loopCur = false;
+    seqCur = [0, 0, 0].concat(FC.buildSkSeq());
+    t0 = performance.now();
+    cycle = 0;
+  }
 
   function stopTx() {
     stopped = true;
@@ -1202,7 +1163,7 @@ $('txStart').onclick = async () => {
     if (usePop) {
       if (popWin && !popWin.closed) {
         popBody.style.background = '#000';
-        setInfo(true, '停止しました ── 送信ボタンで再開');
+        setInfo(true, '停止しました(SK送出済み)── 送信ボタンで再開');
         popBody.onclick = null;
       }
     } else {
@@ -1213,8 +1174,8 @@ $('txStart').onclick = async () => {
     }
     try { wakeLock?.release(); } catch (e) {}
   }
-  if (usePop) popBody.onclick = stopTx;
-  else flash.onclick = stopTx;
+  if (usePop) popBody.onclick = requestStop;
+  else flash.onclick = requestStop;
 };
 
 /* ================= 受信 ================= */
@@ -1226,11 +1187,10 @@ sampleCanvas.width = 8; sampleCanvas.height = 8;
 const sctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
 
 // 受信表示の状態(demod生成前に宣言: 生成時にstatusイベントが発火するため)
-let lastMsg = { text: null, t: 0, count: 1 };
-let dispMode = 'kana';                       // 'kana' | 'raw'
-let liveSymbols = [];
-let lastLiveDisplay = { kana: '', raw: '' };
-const tapeMsgs = [];                         // 確定電文(新しい順) {symbols,text,fixSet,fixMode}
+let dispMode = 'kana';                       // 'kana' | 'raw'(モールス・−表記)
+let rxCells = [];                            // 受信中電文の合議セル {ch,st}
+let prevCells = [];
+const tapeMsgs = [];                         // 確定電文(新しい順) {cells,text}
 const demod = new FC.Demodulator(onDemodEvent);
 
 $('modeKana').onclick = () => setMode('kana');
@@ -1243,22 +1203,30 @@ function setMode(m) {
 }
 $('rxReset').onclick = () => {
   tapeMsgs.length = 0;
-  liveSymbols = [];
-  lastMsg = { text: null, t: 0, count: 1 };
+  rxCells = []; prevCells = [];
+  demod.clearMessage();
   $('rxInfo').textContent = '';
   renderMonitor();
 };
 
-/* 受信モニタ: 紙テープ式 ── 新しい電文が左に生まれ、古い電文は右へ押し出される。
- * 電文内の文字は通常の左→右で読める。リセットボタンを押すまで保持 */
+/* 受信モニタ: 紙テープ式。受信中の電文は左端で成長し、確定電文は右へ。
+ * 暫定(照合1周のみ)の文字は淡色、周回一致で本来色に昇格。
+ * 多数決による訂正は一瞬ハイライト。リセットボタンを押すまで保持 */
 function renderMonitor() {
   const el = $('liveLine');
   el.innerHTML = '';
-  if (liveSymbols.length) {                  // 受信中(未確定)
-    const sp = document.createElement('span');
-    sp.className = 'liveSeg';
-    sp.textContent = FC.displayText(liveSymbols, dispMode);
-    el.appendChild(sp);
+  if (rxCells.length) {
+    const seg = document.createElement('span');
+    for (let i = 0; i < rxCells.length; i++) {
+      const c = rxCells[i];
+      const sp = document.createElement('span');
+      let cls = c.st === 'conf' ? '' : 'prov';
+      if (prevCells[i] && prevCells[i].ch !== c.ch) cls += ' fix';   // 多数決訂正
+      if (cls.trim()) sp.className = cls.trim();
+      sp.textContent = dispMode === 'raw' ? FC.morseOf(c.ch) + ' ' : c.ch;
+      seg.appendChild(sp);
+    }
+    el.appendChild(seg);
   }
   const cur = document.createElement('span');
   cur.className = 'cur'; cur.innerHTML = '&nbsp;';
@@ -1267,18 +1235,13 @@ function renderMonitor() {
     const sep = document.createElement('span');
     sep.className = 'tapeSep'; sep.textContent = ' ◇ ';
     el.appendChild(sep);
-    const txt = FC.displayText(m.symbols, dispMode);
     const seg = document.createElement('span');
-    if (m.fixSet && m.fixMode === dispMode) {
-      for (let i = 0; i < txt.length; i++) {
-        const c = document.createElement('span');
-        if (m.fixSet.has(i)) c.className = 'fix';
-        c.textContent = txt[i];
-        seg.appendChild(c);
-      }
-    } else seg.textContent = txt;
+    seg.textContent = dispMode === 'raw'
+      ? m.cells.map(c => FC.morseOf(c.ch)).join(' ')
+      : m.text;
     el.appendChild(seg);
   }
+  prevCells = rxCells.slice();
 }
 renderMonitor();
 
@@ -1287,42 +1250,21 @@ function onDemodEvent(ev) {
     const dot = $('stDot'), st = $('stText');
     dot.className = 'dot';
     if (ev.state === 'no_signal') { dot.classList.add('idle'); st.textContent = '待機中(信号なし/コントラスト不足)'; }
-    else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = '信号検出 ── 同期待ち'; }
-    else if (ev.state === 'locked') { dot.classList.add('lock'); st.textContent = `同期確立(${(1000 / ev.tBit).toFixed(1)} bps)── データ待ち`; }
-    else if (ev.state === 'frame') { dot.classList.add('rx'); st.textContent = '受信中…'; }
-    if (ev.state !== 'frame' && liveSymbols.length) { liveSymbols = []; renderMonitor(); }
-  } else if (ev.type === 'live') {
-    liveSymbols = ev.symbols;
-    lastLiveDisplay = {
-      kana: FC.displayText(ev.symbols, 'kana'),
-      raw: FC.displayText(ev.symbols, 'raw')
-    };
+    else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = '信号検出 ── VVVで短点校正中'; }
+    else if (ev.state === 'synced') { dot.classList.add('lock'); st.textContent = `同期OK(短点${Math.round(ev.u || demod.u)}ms)── 本文開始(CT)待ち`; }
+    else if (ev.state === 'body') { dot.classList.add('rx'); st.textContent = '受信中…'; }
+  } else if (ev.type === 'update') {
+    rxCells = ev.cells;
     renderMonitor();
-  } else if (ev.type === 'message') {
-    const now = Date.now();
-    const complete = ev.crcOk && ev.eotOk;
-    const head = complete
-      ? (ev.errors > 0 ? `✓ 完全受信(FECで${ev.errors}ビット訂正)` : '✓ 完全受信')
-      : `⚠ 不完全(${ev.crcOk ? '終端符号なし' : 'チェックサム不一致'}・参考表示)`;
-    if (complete && ev.text === lastMsg.text && now - lastMsg.t < 8000) {
-      lastMsg.count++; lastMsg.t = now;
-      $('rxInfo').textContent = `${head} ・ ${timeStamp()} ・ ${lastMsg.count}回受信`;
-      liveSymbols = []; renderMonitor();
-      return;
-    }
-    // FEC訂正の可視化: 速報層と確定層の差分をハイライト
-    let fixSet = null;
-    if (complete && ev.errors > 0) {
-      const fin = FC.displayText(ev.symbols, dispMode);
-      const live = lastLiveDisplay[dispMode] || '';
-      fixSet = new Set();
-      for (let k = 0; k < fin.length; k++) if (fin[k] !== live[k]) fixSet.add(k);
-    }
-    tapeMsgs.unshift({ symbols: ev.symbols, text: ev.text, fixSet, fixMode: dispMode });
+  } else if (ev.type === 'cycle') {
+    $('rxInfo').textContent = `周回${ev.n}を受信 ── 位置照合中(本来色=確定/淡色=暫定) ・ ${timeStamp()}`;
+  } else if (ev.type === 'final') {
+    tapeMsgs.unshift({ cells: ev.cells, text: ev.text });
     if (tapeMsgs.length > 20) tapeMsgs.pop();
-    if (complete) lastMsg = { text: ev.text, t: now, count: 1 };
-    $('rxInfo').textContent = `${head} ・ ${timeStamp()}`;
-    liveSymbols = [];
+    const allConf = ev.cells.every(c => c.st === 'conf');
+    $('rxInfo').textContent = (ev.reason === 'sk' ? '✓ 受信終了(SK受信)' : '□ 信号断のため保存') +
+      (allConf ? ' ── 周回一致で確定済み' : ' ── 暫定文字を含む(照合1周のみ)') + ' ・ ' + timeStamp();
+    rxCells = []; prevCells = [];
     renderMonitor();
   }
 }
@@ -1503,19 +1445,17 @@ function updateDiag() {
   cEl.className = 'dv ' + (c >= demod.MIN_CONTRAST ? (c >= 40 ? 'good' : 'warn') : 'bad');
   $('dgFps').textContent = _fpsTimes.length;
   const st = demod.state;
-  const map = { no_signal: '待機', idle: '信号あり', locked: '同期OK', frame: '受信中' };
+  const map = { no_signal: '待機', idle: '校正中', synced: '同期OK', body: '受信中' };
   const sEl = $('dgState');
   sEl.textContent = map[st] || st;
-  sEl.className = 'dv ' + (st === 'frame' || st === 'locked' ? 'good' : st === 'idle' ? 'warn' : '');
-  let bits = 0;
-  if (st === 'locked') bits = demod.bitBuf.length;
-  else if (st === 'frame') bits = demod.frameBits ? demod.frameBits.length : 0;
-  $('dgBits').textContent = bits;
+  sEl.className = 'dv ' + (st === 'body' || st === 'synced' ? 'good' : st === 'idle' ? 'warn' : '');
+  $('dgBits').textContent = rxCells.length;
   // 詳細診断(トラブル時の手掛かり)
   $('dbg').textContent =
     `輝度${Math.round(lastLuma)} 幅${Math.round(demod.range || 0)}` +
-    ` / 標本${demod.samples.length} / エッジ${demod.edges.length}` +
-    ` / T=${demod.T ? demod.T.toFixed(0) + 'ms' : '-'}` +
+    ` / 標本${demod.samples.length}` +
+    ` / u=${demod.u ? Math.round(demod.u) + 'ms' : '-'}` +
+    ` / 符号[${demod.elems || ''}]` +
     (usingRVFC ? ' / rVFC' : ' / rAF') +
     (loopError ? ` / ERR:${loopError}` : '');
 }
