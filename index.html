@@ -199,6 +199,8 @@
     background:rgba(255,176,0,.06);
     box-shadow:inset 0 0 14px rgba(255,176,0,.12), 0 0 9px rgba(255,176,0,.35);}
   .fieldHint{font-size:10.5px; color:#57544b; margin-top:8px; letter-spacing:.5px; line-height:1.7;}
+  .ctlRow{display:flex; gap:16px;}
+  .ctlRow>div{flex:1; min-width:0;}
   #toast{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:1200;
     background:#241c0c; color:var(--warn); border:1px solid #3a2f18; border-radius:6px;
     padding:9px 16px; font-size:12px; letter-spacing:1px; display:none; max-width:90vw;}
@@ -304,14 +306,13 @@
         <button class="pushBtn blue" id="rxKey" title="カメラ起動/停止"></button>
         <span class="pbLabel">受 信</span></div>
     </div>
-    <div class="fieldHint" style="text-align:center">送信ウィンドウが開いていれば別窓で発光、なければ全画面発光(発光面のクリックでSKを打って停止)。受信はもう一度押すと停止。
-      1回送信では周回照合ができないため、受信文字は暫定色のまま表示されます。</div>
+    <div class="fieldHint" style="text-align:center">発光面のクリックで停止(SK送出)。受信はもう一度押すと停止。</div>
     <div class="warnBox"><span class="warnTri">⚠</span>
       <div class="warnTxt"><b>送信中は点滅する画面を直視しないでください。</b>
       全画面の明滅は目の負担が大きく、光の点滅に敏感な方は発作等を誘発するおそれがあります。</div></div>
 
     <!-- メインCRT: 通常=電文入力 / 受信中=カメラモニタ -->
-    <label>メインスクリーン ── 電文入力(1単語=1マス・リターンで次のマスへ)/受信中はカメラモニタ</label>
+    <label>メインスクリーン ── 電文入力/受信中はカメラモニタ</label>
     <div class="bezel">
       <div class="crt" id="mainCrt">
         <div id="txScreen">
@@ -323,15 +324,20 @@
         </div>
       </div>
     </div>
-    <div class="fieldHint">ローマ字直接入力で即カタカナ表示(例: WATASHI→ワタシ)。IME使用時も確定のリターンでそのまま次マスへ。
-      英単語を送るときは下の「ローマ字→カナ自動変換」をOFF(英数字は国際モールスで自動送信)。
-      使える文字はカタカナ・英数字・ー・?(漢字・スペースは不可)。小書き(ッ・ャ等)は電報の流儀で並字(ツ・ヤ)として送られます。</div>
+    <div class="ctlRow">
+      <div><label>ROIサイズ(受信 ── 白枠をドラッグで移動)</label>
+        <input type="range" id="roiSize" min="6" max="60" value="25"></div>
+      <div><label>カメラズーム(受信 ── 対応機種のみ)</label>
+        <input type="range" id="zoom" min="1" max="8" step="0.1" value="1" disabled></div>
+    </div>
+    <div class="fieldHint">電文は<b>分かち書き</b>で入力します ── 1単語=1マス、リターンで次のマスへ。
+      使える文字はカタカナ・英数字・ー・?。詳しくは「取扱説明書」を参照。</div>
     <div class="check"><input type="checkbox" id="kanaMode" checked><span>ローマ字→カナ自動変換(英字をそのまま打つときはOFF)</span></div>
 
     <!-- 受信モニタ(紙テープ式・保持) -->
     <div class="liveWrap">
       <div class="liveLabelRow">
-        <label style="margin:0">受信モニタ ── 淡色=暫定/本来色=周回一致で確定(リセットまで保持)</label>
+        <label style="margin:0">受信モニタ(リセットまで保持)</label>
         <div style="display:flex; gap:8px; align-items:center">
           <div class="modeSwitch">
             <button id="modeKana" class="active">カナ</button>
@@ -366,7 +372,7 @@
     <div class="small" id="dbg"></div>
 
     <!-- 操作部 -->
-    <label>送信速度(モールス短点の長さ)── ダイヤルまたはランプ位置をクリック</label>
+    <label>送信速度(短点長)</label>
     <div class="dialRow">
       <div class="dial" id="bpsDial" title="クリックで切替"><div class="dialKnob" id="dialKnob"></div></div>
       <div class="bpsLamps">
@@ -377,14 +383,10 @@
       </div>
     </div>
     <input type="hidden" id="txRate" value="100">
-    <div class="check"><input type="checkbox" id="txLoop" checked><span>リピート送信(周回冗長 ── 2周目以降で文字を照合・確定)</span></div>
-    <div class="check"><input type="checkbox" id="txBeep" checked><span>ビーコン音(電信音)── 明フレームでトーン</span></div>
-    <label>ROIサイズ(受信 ── 白枠をドラッグで移動/送信画面が枠内に収まるよう調整)</label>
-    <input type="range" id="roiSize" min="6" max="60" value="25">
-    <label>カメラズーム(受信 ── 対応機種のみ有効)</label>
-    <input type="range" id="zoom" min="1" max="8" step="0.1" value="1" disabled>
+    <div class="check"><input type="checkbox" id="txLoop" checked><span>リピート送信(周回冗長)</span></div>
+    <div class="check"><input type="checkbox" id="txBeep" checked><span>ビーコン音(電信音)</span></div>
 
-    <label>データ量/送信時間(送信中は残り時間をカウントダウン)</label>
+    <label>データ量/送信時間</label>
     <div class="bezel" style="margin-top:4px; padding:9px">
       <div class="estRow">
         <div class="nixie"><span class="nx" id="nxData">---</span><span class="nxUnit">字</span></div>
@@ -393,31 +395,7 @@
     </div>
     <div class="meta" id="txEstimate"></div>
 
-    <details>
-      <summary>📡 距離を伸ばすための送信側チェックリスト</summary>
-      <ul>
-        <li><b>画面輝度を最大</b>にし、<b>自動輝度をOFF</b>にする(ブラウザからは制御できません)</li>
-        <li><b>OLED端末が有利</b>:黒=画素消灯でコントラスト比がほぼ無限大。LCDは黒が浮くため不利</li>
-        <li>ダークモードの自動減光・省電力モード・ナイトシフトを切る</li>
-        <li>直射日光下は画面がコントラスト負けします。<b>夕方以降〜夜間が本領</b></li>
-        <li>画面を受信カメラへ正対させ、送信中は動かさない</li>
-        <li>遠距離ほど短点を長く(150ms推奨)。近距離では短くして高速化</li>
-      </ul>
-    </details>
-    <details>
-      <summary>📷 受信のコツ</summary>
-      <ul>
-        <li>白い枠(ROI)の中に送信画面だけが入るように、枠の位置・サイズとズームを調整</li>
-        <li>カメラは三脚等で<b>固定</b>する。手ブレは誤検出の主因</li>
-        <li>波形グラフで明滅がはっきり2値に分かれ、メーターの針が振れていれば受信可能圏内</li>
-        <li>露出固定はブラウザ・機種依存です(対応時は自動で試行)。効かなくても差分検出で動作します</li>
-        <li>受信側の速度設定は不要(冒頭のVVVから短点長を自動測定)</li>
-        <li>淡色の文字は暫定です。リピート送信の周回照合(2周一致)で本来色に確定し、3周以降は多数決で訂正されます</li>
-        <li>濁点・半濁点は独立符号のため、表示が一瞬「カ→ガ」のように化けるのは正常です</li>
-        <li>小書き(キョ等)は並字(キヨ)で届き、受信側が文脈で復元します。点線の語は推定保留 ── タップで候補が切り替わります。「符号」表示なら復元前の真の受信内容を確認できます</li>
-        <li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます。file://直開きでは動かない環境があります</li>
-      </ul>
-    </details>
+    <button class="btn" id="manualOpen">📖 取扱説明書 ── 別ウィンドウで開く</button>
   </section>
 </main>
 </div>
@@ -1121,6 +1099,101 @@ $('popOpen').onclick = () => {
 setInterval(() => {
   $('lampPop').classList.toggle('on', !!(popWin && !popWin.closed));
 }, 800);
+
+/* ---- 取扱説明書(別ウィンドウ・図解付き) ---- */
+$('manualOpen').onclick = () => {
+  const w = window.open('', 'mabatakiManual', 'width=580,height=800,menubar=no,toolbar=no');
+  if (!w) { showHint('ポップアップがブロックされました。ブラウザの設定で許可してください'); return; }
+  const d = w.document;
+  d.open();
+  d.write('<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">' +
+'<title>MABATAKI SIGNAL 取扱説明書</title><style>' +
+'body{margin:0;padding:24px 26px 48px;background:#e8dfc0;color:#3a3020;' +
+'font-family:"Courier New",ui-monospace,Menlo,"Osaka-Mono","MS Gothic",monospace;line-height:1.9;font-size:13px;}' +
+'h1{font-size:17px;letter-spacing:3px;border-bottom:3px double #3a3020;padding-bottom:8px;}' +
+'h1 small{font-size:10px;letter-spacing:1px;}' +
+'h2{font-size:14px;letter-spacing:2px;margin:26px 0 8px;border-left:6px solid #3a3020;padding-left:9px;}' +
+'ul{padding-left:20px;margin:6px 0;} li{margin:3px 0;}' +
+'b{background:rgba(58,48,32,.1);padding:0 3px;}' +
+'.fig{display:block;margin:10px auto;background:#f2ecd8;border:1px solid #8a7a58;border-radius:4px;}' +
+'.cap{text-align:center;font-size:10.5px;color:#6b5a3a;margin-top:-4px;}' +
+'.warn{border:2px solid #8a1d10;color:#8a1d10;padding:8px 12px;border-radius:4px;margin:14px 0;}' +
+'</style></head><body>' +
+'<h1>▚ MABATAKI SIGNAL <small>取扱説明書 ── by TELEPHONOVISION</small></h1>' +
+'<p>画面の明滅で電文を送る可視光通信機です。符号は和文モールス(英数字は国際モールス)、' +
+'誤りはリピート送信の周回照合で正します。</p>' +
+
+'<h2>1. 電文の入力(分かち書き)</h2>' +
+'<p>電文は<b>分かち書き</b>で入力します。<b>1単語=1マス</b>とし、単語ごとに<b>リターン</b>を押すと次のマスが生まれます。</p>' +
+'<svg class="fig" width="480" height="96" viewBox="0 0 480 96" xmlns="http://www.w3.org/2000/svg">' +
+'<rect x="12" y="18" width="120" height="44" rx="5" fill="#1a150a" stroke="#8a7a58"/>' +
+'<text x="72" y="46" fill="#ffd060" font-size="18" text-anchor="middle" font-family="monospace">ヤマ</text>' +
+'<text x="150" y="46" font-size="15" fill="#3a3020" text-anchor="middle">⏎</text>' +
+'<rect x="168" y="18" width="120" height="44" rx="5" fill="#1a150a" stroke="#8a7a58"/>' +
+'<text x="228" y="46" fill="#ffd060" font-size="18" text-anchor="middle" font-family="monospace">ネコ</text>' +
+'<text x="306" y="46" font-size="15" fill="#3a3020" text-anchor="middle">⏎</text>' +
+'<rect x="324" y="18" width="120" height="44" rx="5" fill="#1a150a" stroke="#8a7a58" stroke-dasharray="4 3"/>' +
+'<text x="384" y="46" fill="#8a7a58" font-size="14" text-anchor="middle" font-family="monospace">(次のマス)</text>' +
+'<text x="240" y="86" font-size="11" fill="#6b5a3a" text-anchor="middle">単語の区切りはマスで表す ── 語間ギャップとして送信される</text>' +
+'</svg>' +
+'<ul>' +
+'<li>使える文字: <b>カタカナ・英数字・ー・?</b>(漢字・スペースは不可。ひらがなは自動でカタカナ化)</li>' +
+'<li>ローマ字直接入力で即カタカナ表示(WATASHI→ワタシ)。英単語を打つときは「自動変換」をOFF</li>' +
+'<li>英数字は文字種から自動判別され、国際モールスで送信(切替符号ホレ/ラタを自動挿入)</li>' +
+'<li>小書き(ッ・ャ等)は電報の流儀で並字(ツ・ヤ)として送信 ── 受信側が文脈で復元します</li>' +
+'<li>空のマスでバックスペース → 前のマスに戻る(マス削除)</li>' +
+'</ul>' +
+
+'<h2>2. 送信</h2>' +
+'<ul>' +
+'<li><b>送信ボタン(赤)</b>: 全画面で発光開始。<b>送信ウィンドウ</b>を先に開いておくと別窓で発光し、手元の操作パネルは生きたまま</li>' +
+'<li><b>速度ダイヤル</b>: 短点の長さ(150/100/70/50ms)。遠距離ほど長く、近距離は短く高速に。50msは受信側に60fpsカメラが必要</li>' +
+'<li><b>リピート送信</b>: VVV→CT→本文→ARを繰り返し送信。受信側の周回照合(誤り訂正)が働くため推奨</li>' +
+'<li>停止は発光面をクリック ── 手続き符号<b>SK</b>を打ってから止まります</li>' +
+'<li>ビーコン音は明滅と同期した電信音。クロックの乱れを耳で検知できます</li>' +
+'</ul>' +
+'<div class="warn"><b>⚠ 送信中は点滅する画面を直視しないでください。</b>' +
+'光の点滅に敏感な方は発作等を誘発するおそれがあります。画面は伏せ、状態はビーコン音で確認を。</div>' +
+
+'<h2>3. 受信</h2>' +
+'<p><b>受信ボタン(青)</b>でメインスクリーンがカメラモニタに切り替わります。' +
+'<b>白いROI枠の中に送信画面だけが収まる</b>よう、枠のドラッグ・ROIサイズ・ズームを調整してください。</p>' +
+'<svg class="fig" width="480" height="150" viewBox="0 0 480 150" xmlns="http://www.w3.org/2000/svg">' +
+'<rect x="20" y="10" width="440" height="120" rx="8" fill="#101410" stroke="#8a7a58"/>' +
+'<rect x="60" y="30" width="130" height="80" fill="#232a23"/>' +
+'<rect x="95" y="45" width="60" height="50" fill="#fff"/>' +
+'<rect x="85" y="38" width="80" height="64" fill="none" stroke="#7dff8a" stroke-width="2" stroke-dasharray="6 4"/>' +
+'<text x="255" y="60" font-size="12" fill="#7dff8a">← ROI枠(白/緑)</text>' +
+'<text x="255" y="80" font-size="11" fill="#9aa89a">枠内=送信画面だけ。周囲の景色を</text>' +
+'<text x="255" y="96" font-size="11" fill="#9aa89a">含めない。カメラは三脚等で固定</text>' +
+'<text x="240" y="145" font-size="11" fill="#6b5a3a" text-anchor="middle">カメラモニタの見え方(イメージ)</text>' +
+'</svg>' +
+'<ul>' +
+'<li>受信側の速度設定は不要 ── 冒頭のVVVから短点長を自動測定します</li>' +
+'<li>波形が2値にくっきり分かれ、針が振れていれば受信可能圏内</li>' +
+'<li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます</li>' +
+'</ul>' +
+
+'<h2>4. 表示の見方</h2>' +
+'<ul>' +
+'<li><b>淡色</b>=暫定(照合1周のみ)。リピートの周回照合で一致すると<b>本来色</b>=確定に昇格</li>' +
+'<li>3周以降は多数決で訂正され、訂正文字は一瞬ハイライト</li>' +
+'<li>1回送信では照合できないため暫定色のまま ── 誤りが混じり得る点に注意</li>' +
+'<li><b>点線の語</b>=小書き復元の推定保留(キョウ⇄キヨウ等)。<b>タップで候補が切り替わり</b>ます</li>' +
+'<li>濁点は独立符号のため「カ→ガ」と一瞬化けるのは正常</li>' +
+'<li>「符号」トグルで復元前の真の受信内容(・−表記)を確認できます</li>' +
+'<li>モニタはリセットボタンを押すまで保持されます</li>' +
+'</ul>' +
+
+'<h2>5. 距離を伸ばすコツ</h2>' +
+'<ul>' +
+'<li>送信画面の<b>輝度を最大</b>にし、自動輝度・ナイトシフト・省電力をOFF</li>' +
+'<li><b>OLED端末が有利</b>(黒=画素消灯)。直射日光下は不利 ── 夕方以降〜夜間が本領</li>' +
+'<li>画面を受信カメラへ正対させ、送受とも固定。遠距離は短点150msで</li>' +
+'</ul>' +
+'</body></html>');
+  d.close();
+};
 
 /* ---- 送信実行(モールス・パルス幅変調) ---- */
 $('txStart').onclick = async () => {
