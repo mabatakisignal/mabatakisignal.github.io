@@ -116,23 +116,23 @@
     box-shadow:inset 0 2px 4px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.6);}
   /* 銘板(灰色の金属プレート・四隅リベット) */
   .nameplate{display:inline-block; max-width:calc(100% - 76px);
-    padding:11px 20px 9px; border-radius:3px; border:1px solid #6e7370;
+    padding:11px 20px 9px; border-radius:3px; border:1px solid #063236;
     background-image:
-      radial-gradient(circle 3px at 8px 8px, #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
-      radial-gradient(circle 3px at calc(100% - 8px) 8px, #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
-      radial-gradient(circle 3px at 8px calc(100% - 8px), #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
-      radial-gradient(circle 3px at calc(100% - 8px) calc(100% - 8px), #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
-      repeating-linear-gradient(90deg, rgba(255,255,255,.14) 0 1px, rgba(0,0,0,.03) 1px 3px),
-      linear-gradient(180deg,#d3d6d3,#b3b8b4 55%,#9ba09c);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -2px 3px rgba(0,0,0,.18),
-      0 1px 2px rgba(0,0,0,.25);}
-  .npMain{font-size:17px; letter-spacing:4px; color:#20241f; font-weight:700;
-    text-shadow:0 1px 0 rgba(255,255,255,.7), 0 -1px 0 rgba(0,0,0,.25);}
-  .npBy{font-size:9px; letter-spacing:2px; color:#3d423e; font-style:italic;
+      radial-gradient(circle 3px at 8px 8px, #cfe3e2 0 1px, #0a2b2e 1.6px 2.2px, transparent 3px),
+      radial-gradient(circle 3px at calc(100% - 8px) 8px, #cfe3e2 0 1px, #0a2b2e 1.6px 2.2px, transparent 3px),
+      radial-gradient(circle 3px at 8px calc(100% - 8px), #cfe3e2 0 1px, #0a2b2e 1.6px 2.2px, transparent 3px),
+      radial-gradient(circle 3px at calc(100% - 8px) calc(100% - 8px), #cfe3e2 0 1px, #0a2b2e 1.6px 2.2px, transparent 3px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, rgba(0,0,0,.05) 1px 3px),
+      linear-gradient(180deg,#14545a,#0a3e42 55%,#062f33);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18), inset 0 -2px 4px rgba(0,0,0,.35),
+      0 1px 3px rgba(0,0,0,.35);}
+  .npMain{font-size:17px; letter-spacing:4px; color:#ffffff; font-weight:700;
+    text-shadow:0 1px 1px rgba(0,0,0,.5);}
+  .npBy{font-size:9px; letter-spacing:2px; color:#e2ecec; font-style:italic;
     font-weight:400; vertical-align:middle;}
-  .npSub{margin-top:5px; font-size:10.5px; letter-spacing:2px; color:#3d423e;
-    text-shadow:0 1px 0 rgba(255,255,255,.6);
-    border-top:1px solid rgba(0,0,0,.18); padding-top:5px;}
+  .npSub{margin-top:5px; font-size:10.5px; letter-spacing:2px; color:#ffffff;
+    text-shadow:0 1px 1px rgba(0,0,0,.45);
+    border-top:1px solid rgba(255,255,255,.22); padding-top:5px;}
   /* 丸押しボタン+ランプ */
   .pbRow{display:flex; gap:26px; justify-content:center; margin-top:16px;
     align-items:stretch; flex-wrap:wrap;}
@@ -443,7 +443,7 @@
 <div class="cabinet">
 <header>
   <div class="nameplate">
-    <div class="npMain">MABATAKI&nbsp;&nbsp;SIGNAL <span class="npBy">by TELEPHONOVISION</span></div>
+    <div class="npMain">MABATAKI SIGNAL <span class="npBy">by TELEPHONOVISION</span></div>
     <div class="npSub">型式：TPV−０３ モールス可視光通信機</div>
   </div>
 </header>
@@ -648,6 +648,11 @@ const FC = (() => {
     '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
     '6':'-....','7':'--...','8':'---..','9':'----.',
     '?':'..--..','-':'-....-',
+    // URL・メールアドレス用の記号(国際モールスの正規符号)
+    '.':'.-.-.-','@':'.--.-.','/':'-..-.',':':'---...','_':'..--.-',
+    '=':'-...-','(':'-.--.',')':'-.--.-','"':'.-..-.',"'":'.----.',
+    ',':'--..--','!':'-.-.--',';':'-.-.-.','&':'.-...','$':'...-..-',
+    '+':'.-.-.',                     // 注: ARと同符号 → 本文中は使用しない
     '*':'--.--'                      // 英字マーカー(ホレ符号を流用)
   };
   /* ---------- プロサイン(手続き符号) ---------- */
@@ -657,7 +662,7 @@ const FC = (() => {
     SK: '...-.-'    // 全送信終了
   };
   const INTL_REV = {};
-  for (const k in INTL) INTL_REV[INTL[k]] = k;
+  for (const k in INTL) { if (k === '+') continue; INTL_REV[INTL[k]] = k; }  // '+'はAR優先
 
   function hiraToKata(s) {
     return s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
@@ -746,8 +751,8 @@ const FC = (() => {
   /* 語の表示変換: *付き=英字語(無変換) / 数字のみ=無変換 / 他=カナ復元 */
   function wordDisplay(w) {
     if (!w) return w;
-    if (w[0] === '*') return w.slice(1);
-    if (/^[0-9?\-]+$/.test(w)) return w;
+    if (w[0] === '*') return w.slice(1);           // 英字マーカー付き → 無変換
+    if (!/[A-Z]/.test(w)) return w;                 // 数字・記号のみ → 無変換
     return romajiToKana(w);
   }
 
@@ -758,6 +763,7 @@ const FC = (() => {
 
   /* ---------- 送信列の構築 ---------- */
   // 1周(VVV CT 本文 AR)の符号列 → {items:[{code,gap}], body:文字数}
+  const FORBIDDEN = new Set(['+']);   // ARと同符号のため本文では使わない
   function buildItems(words) {
     const items = [];
     const add = (code, gap) => items.push({ code, gap });
@@ -773,6 +779,7 @@ const FC = (() => {
       let payload = kanaToRomaji(kata);
       if (/[A-Z]/.test(kata)) payload = '*' + payload; // 英字を含む語 → マーカー
       for (const ch of payload) {
+        if (FORBIDDEN.has(ch)) throw new Error('invalid char: ' + ch);
         const code = INTL[ch];
         if (!code) throw new Error('invalid char: ' + ch);
         add(code, gapNext); gapNext = 3; body++;
@@ -1136,16 +1143,17 @@ function sanitizeField(inp) {
   s = s.toUpperCase();
   s = s.replace(/[−ｰ―‐]/g, 'ー');
   let out = '', dropped = false;
+  // URL・メールアドレスに必要な記号も許可(+ はARと同符号のため不可)
   for (const c of s) {
-    if (/[A-Z0-9?\-ーァ-ヴ]/.test(c)) out += c;
-    else dropped = true;                    // 漢字・スペース等は破棄
+    if (/[A-Z0-9?\-ーァ-ヴ.@/:_=()"',!;&$]/.test(c)) out += c;
+    else dropped = true;                    // 漢字・スペース・+ 等は破棄
   }
   if (inp.dataset.kmode === '1') out = liveKana(out);  // ローマ字→カナ 逐次変換
   if (out !== before) {
     inp.value = out;
     try { inp.setSelectionRange(out.length, out.length); } catch (e) {}
   }
-  if (dropped) showHint('カタカナ・英数字・ー・? のみ使用できます(漢字・スペースは不可)');
+  if (dropped) showHint('カタカナ・英数字・記号(. @ / : _ = など)が使えます。漢字・スペース・+ は不可');
 }
 $('kanaMode').addEventListener('change', updateEstimate);
 
@@ -1460,7 +1468,8 @@ $('manualOpen').onclick = () => {
 '<b>「文字リセット」キー</b>で入力内容を消去。受信中はこの画面がカメラモニタになります。</p>' +
 '<p>電文は<b>分かち書き</b>で入力します。<b>1単語=1マス</b>、単語ごとに<b>リターン</b>で次のマスが生まれます。</p>' +
 '<ul>' +
-'<li>使える文字: <b>カタカナ・英数字・ー・?</b>(漢字・スペースは不可。ひらがなは自動でカタカナ化)</li>' +
+'<li>使える文字: <b>カタカナ・英数字・ー・記号</b>(漢字・スペースは不可。ひらがなは自動でカタカナ化)</li>' +
+'<li>URL・メールアドレスも送れます ── 使える記号: <b>. @ / : _ = - ? ( ) " \' , ! ; & $</b>(+ のみ手続き符号ARと同符号のため使用不可)</li>' +
 '<li><b>アルファベット→カナ</b>がONだと、打ったローマ字が即カタカナになります(WATASHI→ワタシ)。英単語をそのまま送るときはOFFに</li>' +
 '<li>カタカナは可逆ローマ字(ん=NN、っ=子音重複、ー=ハイフン)に変換して送信 ── <b>拗音・促音(キョ・ッ)も正確に伝わります</b></li>' +
 '<li>英字を含む語は自動判別され、英字マーカー(*)付きで送信。受信側は無変換で表示します</li>' +
