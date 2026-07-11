@@ -114,11 +114,25 @@
     background-size:9px 9px; background-position:4px 4px;
     border:1px solid var(--plate-edge);
     box-shadow:inset 0 2px 4px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.6);}
-  header h1{margin:0; display:inline-block; font-size:17px; letter-spacing:4px;
-    max-width:calc(100% - 76px); padding:6px 0 2px;
-    color:#16241e; text-shadow:0 1px 0 rgba(255,255,255,.65);}
-  header h1 .tag{font-size:9px; letter-spacing:2px; color:#2f463d; vertical-align:middle; font-style:italic;}
-  header p{margin:8px 0 0 2px; color:var(--ink-dim); font-size:10.5px; letter-spacing:1px;}
+  /* 銘板(灰色の金属プレート・四隅リベット) */
+  .nameplate{display:inline-block; max-width:calc(100% - 76px);
+    padding:11px 20px 9px; border-radius:3px; border:1px solid #6e7370;
+    background-image:
+      radial-gradient(circle 3px at 8px 8px, #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
+      radial-gradient(circle 3px at calc(100% - 8px) 8px, #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
+      radial-gradient(circle 3px at 8px calc(100% - 8px), #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
+      radial-gradient(circle 3px at calc(100% - 8px) calc(100% - 8px), #f2f4f2 0 1px, #7d8380 1.6px 2.2px, transparent 3px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.14) 0 1px, rgba(0,0,0,.03) 1px 3px),
+      linear-gradient(180deg,#d3d6d3,#b3b8b4 55%,#9ba09c);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.85), inset 0 -2px 3px rgba(0,0,0,.18),
+      0 1px 2px rgba(0,0,0,.25);}
+  .npMain{font-size:17px; letter-spacing:4px; color:#20241f; font-weight:700;
+    text-shadow:0 1px 0 rgba(255,255,255,.7), 0 -1px 0 rgba(0,0,0,.25);}
+  .npBy{font-size:9px; letter-spacing:2px; color:#3d423e; font-style:italic;
+    font-weight:400; vertical-align:middle;}
+  .npSub{margin-top:5px; font-size:10.5px; letter-spacing:2px; color:#3d423e;
+    text-shadow:0 1px 0 rgba(255,255,255,.6);
+    border-top:1px solid rgba(0,0,0,.18); padding-top:5px;}
   /* 丸押しボタン+ランプ */
   .pbRow{display:flex; gap:26px; justify-content:center; margin-top:16px;
     align-items:stretch; flex-wrap:wrap;}
@@ -335,16 +349,21 @@
   .status{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px;
     letter-spacing:1px; color:var(--ink);}
   /* ステータス表示器(可変テキストはCRTに組み込む) */
-  #statScreen{padding:10px 13px; min-height:78px; overflow:hidden; white-space:nowrap;
-    font-size:11.5px; letter-spacing:1px; line-height:1.9; color:#4a7a52;
+  #statScreen{padding:10px 13px; height:82px; overflow:hidden; white-space:nowrap;
+    display:flex; flex-direction:column; justify-content:flex-start;
+    font-size:11.5px; letter-spacing:1px; color:#4a7a52;
     background:
       repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
       radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
     border:3px solid var(--bezel); outline:1px solid #5f7a6e; border-radius:10px;
     box-shadow:inset 0 0 20px rgba(0,0,0,.9), inset 0 0 24px rgba(77,255,122,.06), 0 1px 0 rgba(255,255,255,.55);}
-  #statScreen .status{margin-top:0; color:#8affa8; font-size:12.5px;
-    text-shadow:0 0 6px rgba(77,255,122,.4);}
-  #statScreen .statLine{color:#4a7a52; font-size:11px; letter-spacing:.5px;}
+  /* 1行目=状態 / 2行目=カメラ情報 / 3行目=診断。各行は高さ固定でレイアウトを動かさない */
+  #statScreen .status{margin-top:0; height:22px; line-height:22px; flex:none;
+    color:#8affa8; font-size:12.5px; text-shadow:0 0 6px rgba(77,255,122,.4);
+    overflow:hidden; text-overflow:ellipsis;}
+  #statScreen .statLine{height:19px; line-height:19px; flex:none;
+    color:#4a7a52; font-size:11px; letter-spacing:.5px;
+    overflow:hidden; text-overflow:ellipsis;}
   .dot{width:9px; height:9px; border-radius:50%; background:#5f7a6e; flex:none;
     box-shadow:inset 0 1px 2px rgba(0,0,0,.5);}
   .dot.idle{background:#5f7a6e;}
@@ -423,8 +442,10 @@
 
 <div class="cabinet">
 <header>
-  <h1>▚ MABATAKI SIGNAL <span class="tag">by TELEPHONOVISION</span></h1>
-  <p>可視光通信機 ── 全画面1画素・国際モールス/パルス幅変調/周回冗長</p>
+  <div class="nameplate">
+    <div class="npMain">MABATAKI&nbsp;&nbsp;SIGNAL <span class="npBy">by TELEPHONOVISION</span></div>
+    <div class="npSub">型式：TPV−０３ モールス可視光通信機</div>
+  </div>
 </header>
 
 <main>
