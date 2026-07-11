@@ -276,8 +276,8 @@
     background:linear-gradient(180deg,#f2f0ea,#d5d2c9); color:var(--ink-dim); border:none; cursor:pointer;}
   .modeSwitch button.active{background:linear-gradient(180deg,#c9c6bd,#b5b2a8); color:var(--ink);
     font-weight:700; box-shadow:inset 0 2px 3px rgba(0,0,0,.25);}
-  #liveLine{margin-top:5px; padding:14px 13px; min-height:52px; font-size:19px; letter-spacing:3px;
-    color:#8affa8; word-break:break-all; line-height:1.5;
+  #liveLine{margin-top:5px; padding:14px 13px; height:52px; font-size:19px; letter-spacing:3px;
+    color:#8affa8; line-height:1.5;
     background:
       repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
       radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
@@ -285,8 +285,8 @@
     box-shadow:inset 0 0 28px rgba(0,0,0,.9), inset 0 0 30px rgba(77,255,122,.08), 0 1px 0 rgba(255,255,255,.55);}
   #liveLine .cur{display:inline-block; width:.6em; background:#8affa8; animation:blink .8s infinite;
     box-shadow:0 0 8px rgba(138,255,168,.8); margin-right:3px;}
-  #liveLine{white-space:normal; overflow-y:auto; max-height:150px;
-    scrollbar-width:thin; scrollbar-color:#2f4d2c transparent;}  /* ワープロ式: 自動改行・あふれたらスクロール */
+  #liveLine{white-space:nowrap; overflow:hidden;}          /* 1行固定: 古い文字は左へ流れて消える */
+  #liveLine .tapeInner{display:inline-flex; align-items:center;}
   #liveLine .liveSeg{}
   #liveLine .prov{color:#4a7a52;}                          /* 暫定(照合1周のみ)は淡色 */
   #liveLine .ambi{color:#4a7a52; border-bottom:1px dotted #4a7a52;}  /* 小書き復元の保留語 */
@@ -374,7 +374,7 @@
     <!-- 受信モニタ(紙テープ式・保持) -->
     <div class="liveWrap">
       <div class="liveLabelRow">
-        <label style="margin:0">受信モニタ ── 自動改行・電文の区切りは /(リセットまで保持)</label>
+        <label style="margin:0">受信モニタ ── 新しい文字は右から/電文の区切りは /(リセットまで保持)</label>
         <div style="display:flex; gap:8px; align-items:center">
           <div class="modeSwitch">
             <button id="modeKana" class="active">カナ</button>
@@ -1363,35 +1363,38 @@ function renderCellSeg(cells, prevC) {
   return seg;
 }
 
-/* 受信モニタ: ワープロ式。古い電文から通常の文書フローで表示し、
- * 電文の区切りはスラッシュ。受信中のテキストは末尾に追記され自動改行する。
+/* 受信モニタ: 1行固定・右詰め。古い電文から順に横一列に並べ、
+ * 電文の区切りはスラッシュ。新しい文字ほど右に現れ、幅を超えた古い文字は左へ流れて消える。
  * 暫定(照合1周のみ)は淡色、周回一致で本来色に昇格(同じ位置を上書き照合)。
  * 多数決による訂正は一瞬ハイライト。リセットボタンを押すまで保持 */
 function renderMonitor() {
   const el = $('liveLine');
   el.innerHTML = '';
+  const inner = document.createElement('span');
+  inner.className = 'tapeInner';
   let first = true;
   const sep = () => {
     if (!first) {
       const s = document.createElement('span');
       s.className = 'tapeSep'; s.textContent = ' / ';
-      el.appendChild(s);
+      inner.appendChild(s);
     }
     first = false;
   };
-  for (let i = tapeMsgs.length - 1; i >= 0; i--) {   // 古い順
+  for (let i = tapeMsgs.length - 1; i >= 0; i--) {   // 古い順(左)→新しい(右)
     sep();
-    el.appendChild(renderCellSeg(tapeMsgs[i].cells, null));
+    inner.appendChild(renderCellSeg(tapeMsgs[i].cells, null));
   }
-  if (rxCells.length) {                              // 受信中は末尾に追記
+  if (rxCells.length) {                              // 受信中は末尾(右端)に追記
     sep();
-    el.appendChild(renderCellSeg(rxCells, prevCells));
+    inner.appendChild(renderCellSeg(rxCells, prevCells));
   }
   const cur = document.createElement('span');
   cur.className = 'cur'; cur.innerHTML = '&nbsp;';
-  el.appendChild(cur);
+  inner.appendChild(cur);
+  el.appendChild(inner);
   prevCells = rxCells.slice();
-  el.scrollTop = el.scrollHeight;                    // 追記に追従してスクロール
+  el.scrollLeft = el.scrollWidth;                    // 常に右端(最新)を表示。古い文字は左へ消える
 }
 renderMonitor();
 
