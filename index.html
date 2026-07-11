@@ -1156,7 +1156,11 @@ $('manualOpen').onclick = () => {
 $('stopKey').onclick = () => { if (txRunning && txStopFn) txStopFn(); };
 
 $('txStart').onclick = async () => {
-  if (txRunning) { if (txStopFn) txStopFn(); return; }   // 再押しで停止(SK送出)
+  if (txRunning) {
+    if (txStopFn) { txStopFn(); return; }  // 再押しで停止
+    txRunning = false;                     // 停止関数を持たない異常状態から自己回復
+    $('lampTx').classList.remove('on');
+  }
   const words = gatherWords();
   const unitMs = +$('txRate').value;
   const loop = $('txLoop').checked;
@@ -1179,14 +1183,18 @@ $('txStart').onclick = async () => {
   $('lampTx').classList.add('on');
   txRunning = true;
   // 発光面: 送信ウィンドウが開いていれば別窓、なければ全画面オーバーレイ
-  const usePop = !!(popWin && !popWin.closed);
+  let usePop = !!(popWin && !popWin.closed);
   const flash = $('flash'), info = $('flashInfo');
   let popBody = null, popInfo = null, watch = null;
   if (usePop) {
-    popBody = popWin.document.body;
-    popInfo = popWin.document.getElementById('i');
-    try { popWin.focus(); } catch (e) {}
-  } else {
+    try {
+      popBody = popWin.document.body;
+      popInfo = popWin.document.getElementById('i');
+      popWin.focus();
+      showHint('送信ウィンドウ(別窓)で発光しています');
+    } catch (e) { usePop = false; }        // 別窓が閉じられた等 → 全画面にフォールバック
+  }
+  if (!usePop) {
     flash.classList.add('on');
     try { await document.documentElement.requestFullscreen({ navigationUI: 'hide' }); } catch (e) {}
   }
