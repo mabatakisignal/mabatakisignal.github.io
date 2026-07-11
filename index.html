@@ -319,7 +319,7 @@
 <div class="cabinet">
 <header>
   <h1>▚ MABATAKI SIGNAL <span class="tag">by TELEPHONOVISION</span></h1>
-  <p>可視光通信機 ── 全画面1画素・和文モールス/パルス幅変調/周回冗長</p>
+  <p>可視光通信機 ── 全画面1画素・国際モールス/パルス幅変調/周回冗長</p>
 </header>
 
 <main>
@@ -377,6 +377,7 @@
         <div style="display:flex; gap:8px; align-items:center">
           <div class="modeSwitch">
             <button id="modeKana" class="active">カナ</button>
+            <button id="modeRoma">ローマ字</button>
             <button id="modeRaw">符号</button>
           </div>
           <button class="miniKey" id="rxReset">リセット</button>
@@ -447,39 +448,26 @@
 <script>
 /* ================================================================
  * ==== MABATAKI SIGNAL CORE BEGIN ====
- * プロトコル層+和文モールス符号+復調器。DOM非依存(Nodeで単体テスト可能)。
- * 将来ESP32+LED送信機へ移植する場合もこの層をそのまま流用する。
+ * プロトコル層+国際モールス+ローマ字コーデック+復調器。
+ * DOM非依存(Nodeで単体テスト可能)。ESP32+LED送信機へもこの層を流用する。
  *
- * 方式(追補第2弾): 和文モールス+パルス幅変調+周回冗長
- *  - カタカナ1文字=1和文モールス符号。英数字は国際モールス
- *  - 濁点・半濁点は独立符号(ガ=カ+゛)。小書きは並字に正規化(ッ→ツ)
+ * 方式(v4): 国際モールス+パルス幅変調+周回冗長+可逆ローマ字
+ *  - 信号は国際モールスのみ(可読性・確実性重視。和文モールスは廃止)
+ *  - カタカナは完全可逆な1対1ローマ字(訓令式ベース)へ変換して送信し、
+ *    受信側でカタカナに復元する。ん=NN ぢ=DI づ=DU を=WO ー=-
+ *    っ=次子音重複(ナ行・語末等の曖昧時はXTU)。拗音・促音も正確に伝わる
+ *  - 英字を含む語は先頭に英字マーカー *(符号はホレ --.-- を流用)を付け、
+ *    受信側は無変換で表示する。数字のみの語はマーカー不要
  *  - 変調: 短点=明1単位, 長点=明3単位, 符号内ギャップ=暗1,
- *          文字間=暗3, 語間=暗7(国際標準比率)。判別は長さの比
- *  - フレーム: VVV(同期・短点校正) CT(本文開始) 本文 [ラタ] AR(周回終端)
- *              リピート最終・停止時に SK
- *  - 和文/欧文切替: ホレ(--.--)で和文開始, ラタ(...-.)で欧文復帰。
- *    ※ン(.-.-.)はARと同符号のため、ARは欧文モードでのみ解釈する。
- *      送信側は和文のまま本文が終わる場合、必ずラタ→ARの順で打つ
- *  - 誤り対策: FEC/チェックサム廃止。周回(CT〜AR)ごとの文字列を
- *    位置照合し、2周一致で確定・3周以降は多数決(周回冗長)
+ *          文字間=暗3, 語間=暗7。判別は長さの比
+ *  - フレーム: VVV(同期・短点校正) CT(本文開始) 本文 AR(周回終端)
+ *              1回送信の末尾に SK
+ *  - 誤り対策: 周回(CT〜AR)ごとの文字列を位置照合し、
+ *    2周一致で確定・3周以降は多数決(周回冗長)
  * ================================================================ */
 const FC = (() => {
   'use strict';
 
-  /* ---------- 和文モールス符号表 ---------- */
-  const WABUN = {
-    'ア':'--.--','イ':'.-','ウ':'..-','エ':'-.---','オ':'.-...',
-    'カ':'.-..','キ':'-.-..','ク':'...-','ケ':'-.--','コ':'----',
-    'サ':'-.-.-','シ':'--.-.','ス':'---.-','セ':'.---.','ソ':'---.',
-    'タ':'-.','チ':'..-.','ツ':'.--.','テ':'.-.--','ト':'..-..',
-    'ナ':'.-.','ニ':'-.-.','ヌ':'....','ネ':'--.-','ノ':'..--',
-    'ハ':'-...','ヒ':'--..-','フ':'--..','ヘ':'.','ホ':'-..',
-    'マ':'-..-','ミ':'..-.-','ム':'-','メ':'-...-','モ':'-..-.',
-    'ヤ':'.--','ユ':'-..--','ヨ':'--',
-    'ラ':'...','リ':'--.','ル':'-.--.','レ':'---','ロ':'.-.-',
-    'ワ':'-.-','ヰ':'.-..-','ヱ':'.--..','ヲ':'.---',
-    'ン':'.-.-.','゛':'..','゜':'..--.','ー':'.--.-'
-  };
   /* ---------- 国際モールス符号表 ---------- */
   const INTL = {
     'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....',
@@ -488,55 +476,23 @@ const FC = (() => {
     'Y':'-.--','Z':'--..',
     '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
     '6':'-....','7':'--...','8':'---..','9':'----.',
-    '?':'..--..','-':'-....-'
+    '?':'..--..','-':'-....-',
+    '*':'--.--'                      // 英字マーカー(ホレ符号を流用)
   };
   /* ---------- プロサイン(手続き符号) ---------- */
   const PRO = {
-    CT: '-.-.-',    // 本文開始(=和文のサと同型。本文開始前のみ解釈)
-    AR: '.-.-.',    // 周回終端(=和文のンと同型。欧文モードでのみ解釈)
-    SK: '...-.-',   // 全送信終了
-    DO: '--.--',    // ホレ: 和文開始
-    SN: '...-.'     // ラタ: 和文終了・欧文復帰
+    CT: '-.-.-',    // 本文開始
+    AR: '.-.-.',    // 周回終端
+    SK: '...-.-'    // 全送信終了
   };
-  const WABUN_REV = {}, INTL_REV = {};
-  for (const k in WABUN) WABUN_REV[WABUN[k]] = k;
+  const INTL_REV = {};
   for (const k in INTL) INTL_REV[INTL[k]] = k;
-
-  /* ---------- 濁点・半濁点の分解/合成、小書き正規化 ---------- */
-  const DAKU = {'ガ':'カ','ギ':'キ','グ':'ク','ゲ':'ケ','ゴ':'コ',
-                'ザ':'サ','ジ':'シ','ズ':'ス','ゼ':'セ','ゾ':'ソ',
-                'ダ':'タ','ヂ':'チ','ヅ':'ツ','デ':'テ','ド':'ト',
-                'バ':'ハ','ビ':'ヒ','ブ':'フ','ベ':'ヘ','ボ':'ホ','ヴ':'ウ'};
-  const HANDAKU = {'パ':'ハ','ピ':'ヒ','プ':'フ','ペ':'ヘ','ポ':'ホ'};
-  const SMALL = {'ァ':'ア','ィ':'イ','ゥ':'ウ','ェ':'エ','ォ':'オ',
-                 'ャ':'ヤ','ュ':'ユ','ョ':'ヨ','ッ':'ツ','ヮ':'ワ'};
-  const DAKU_REV = {}, HANDAKU_REV = {};
-  for (const k in DAKU) DAKU_REV[DAKU[k]] = k;
-  for (const k in HANDAKU) HANDAKU_REV[HANDAKU[k]] = k;
 
   function hiraToKata(s) {
     return s.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
   }
-  function isKana(c) { return /[ァ-ヴー]/.test(c); }
-  function decomposeKana(c) {          // 小書き正規化+濁点分解
-    c = SMALL[c] || c;
-    if (DAKU[c]) return [DAKU[c], '゛'];
-    if (HANDAKU[c]) return [HANDAKU[c], '゜'];
-    return [c];
-  }
-  function morseOf(ch) {               // 表示用(・−表記)。スペースは/
-    if (ch === ' ') return '/';
-    let codes;
-    if (isKana(ch)) codes = decomposeKana(ch).map(p => WABUN[p] || '?');
-    else codes = [INTL[ch] || '?'];
-    return codes.join(' ').replace(/\./g, '・').replace(/-/g, '−');
-  }
-  function displayCells(cells, mode) { // 受信セル列 → 表示文字列
-    if (mode === 'raw') return cells.map(c => morseOf(c.ch)).join(' ');
-    return cells.map(c => c.ch).join('');
-  }
 
-  /* ---------- ローマ字→カナ入力補助用の対応表(伝送には不使用) ---------- */
+  /* ---------- カタカナ⇔ローマ字(完全可逆1対1・訓令式ベース) ---------- */
   const K2R = {
     'ア':'A','イ':'I','ウ':'U','エ':'E','オ':'O',
     'カ':'KA','キ':'KI','ク':'KU','ケ':'KE','コ':'KO',
@@ -573,42 +529,89 @@ const FC = (() => {
   };
   const R2K = {};
   for (const k in K2R) R2K[K2R[k]] = k;
-  R2K['XTU'] = 'ッ';
+  R2K['XTU'] = 'ッ';                     // ッ単独形(特殊符号化に対応)
+  const DOUBLABLE = 'KSTHMYRWGZDBPVF';   // っ を子音重複で表せる子音(N,Xは除外)
+
+  function kanaToRomaji(word) {          // カタカナ語 → 伝送ローマ字
+    let out = '';
+    for (let i = 0; i < word.length; i++) {
+      const c = word[i];
+      if (c === 'ッ') {
+        // NNA=ンア と ッナ の衝突回避: 次がナ行・母音・小書き・ー・語末はXTU
+        const rest = word.slice(i + 1);
+        const nextTok = rest ? (K2R[rest.slice(0, 2)] || K2R[rest[0]] || null) : null;
+        const h = nextTok ? nextTok[0] : null;
+        out += (h && DOUBLABLE.includes(h)) ? h : 'XTU';
+        continue;
+      }
+      const two = K2R[word.substr(i, 2)];
+      if (two !== undefined && word.substr(i, 2).length === 2) { out += two; i++; continue; }
+      const one = K2R[c];
+      if (one !== undefined) { out += one; continue; }
+      out += c;                          // 数字・?・-・英字はそのまま
+    }
+    return out;
+  }
+
+  function romajiToKana(s) {             // 伝送ローマ字 → カタカナ(貪欲最長一致・寛容)
+    let out = '', i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (i + 1 < s.length && s[i + 1] === c && DOUBLABLE.includes(c)) {
+        out += 'ッ'; i++; continue;      // 子音重複 → 促音(NNは除外済み)
+      }
+      let matched = false;
+      for (let L = 3; L >= 1; L--) {
+        if (i + L <= s.length) {
+          const k = R2K[s.substr(i, L)];
+          if (k) { out += k; i += L; matched = true; break; }
+        }
+      }
+      if (!matched) { out += c; i++; }   // 数字・?・未確定子音は素通し(速報表示で許容)
+    }
+    return out;
+  }
+
+  /* 語の表示変換: *付き=英字語(無変換) / 数字のみ=無変換 / 他=カナ復元 */
+  function wordDisplay(w) {
+    if (!w) return w;
+    if (w[0] === '*') return w.slice(1);
+    if (/^[0-9?\-]+$/.test(w)) return w;
+    return romajiToKana(w);
+  }
+
+  function morseOf(ch) {                 // 表示用(・−表記)。スペースは/
+    if (ch === ' ') return '/';
+    return (INTL[ch] || '?').replace(/\./g, '・').replace(/-/g, '−');
+  }
 
   /* ---------- 送信列の構築 ---------- */
-  // 1周(VVV CT 本文 [ラタ] AR)の符号列 → [{code, gap(前置の暗単位)}]
+  // 1周(VVV CT 本文 AR)の符号列 → {items:[{code,gap}], body:文字数}
   function buildItems(words) {
     const items = [];
     const add = (code, gap) => items.push({ code, gap });
     add(INTL.V, 0); add(INTL.V, 3); add(INTL.V, 3);   // 同期・校正
     add(PRO.CT, 3);                                    // 本文開始
-    let mode = 'wabun';                                // CT後の既定は和文
     let firstWord = true, body = 0;
     for (let w of words) {
       w = (w || '').trim();
       if (!w) continue;
       let gapNext = firstWord ? 3 : 7;                 // 語間=7単位
       firstWord = false;
-      for (const c of w) {
-        const m = isKana(c) ? 'wabun' : 'intl';
-        if (m !== mode) {                              // 文字種で自動切替
-          add(m === 'wabun' ? PRO.DO : PRO.SN, gapNext);
-          gapNext = 3; mode = m;
-        }
-        const parts = m === 'wabun' ? decomposeKana(c) : [c];
-        for (const p of parts) {
-          const code = m === 'wabun' ? WABUN[p] : INTL[p];
-          if (!code) throw new Error('invalid char: ' + c);
-          add(code, gapNext); gapNext = 3; body++;
-        }
+      const kata = hiraToKata(w);
+      let payload = kanaToRomaji(kata);
+      if (/[A-Z]/.test(kata)) payload = '*' + payload; // 英字を含む語 → マーカー
+      for (const ch of payload) {
+        const code = INTL[ch];
+        if (!code) throw new Error('invalid char: ' + ch);
+        add(code, gapNext); gapNext = 3; body++;
       }
     }
     if (body === 0) throw new Error('empty');
-    if (mode !== 'intl') add(PRO.SN, 3);               // ン≠AR保証のため欧文復帰
     add(PRO.AR, 3);
     return { items, body };
   }
-  function itemsToSeq(items) {         // → 1単位ごとの明暗列(0/1)
+  function itemsToSeq(items) {           // → 1単位ごとの明暗列(0/1)
     const seq = [];
     for (const it of items) {
       for (let i = 0; i < it.gap; i++) seq.push(0);
@@ -620,82 +623,18 @@ const FC = (() => {
     }
     return seq;
   }
-  function buildTx(words, opts = {}) { // {seq, units, chars(本文符号数)}
+  function buildTx(words, opts = {}) {   // {seq, units, chars(本文符号数)}
     const { items, body } = buildItems(words);
     let seq = itemsToSeq(items);
     if (opts.sk) seq = seq.concat(itemsToSeq([{ code: PRO.SK, gap: 3 }]));
     return { seq, units: seq.length, chars: body };
   }
-  function buildSkSeq() {              // 停止時のSKコーダ
+  function buildSkSeq() {
     return itemsToSeq([{ code: PRO.SK, gap: 3 }]);
   }
   function estimateSeconds(units, unitMs) {
-    return units * unitMs / 1000 + 1.6;   // リードイン込み概算
+    return units * unitMs / 1000 + 1.6;  // リードイン込み概算
   }
-
-  /* ---------- 小書き復元器(受信側・完全オフライン) ----------
-   * 並字化された受信カナ列から小書き文字を文脈推定で復元する独立モジュール。
-   * 方針「送信は歴史準拠、受信は現代的に賢く」。
-   * 将来オンデバイスAI(Chrome Prompt API等)へ差し替える場合はこの口だけを
-   * 置き換える。現時点では外部依存ゼロ(ルール+内蔵ミニ辞書)を厳守。
-   * 復元はすべて同字数の置換(ヨ→ョ, ツ→ッ)なので周回照合セルと1:1対応する */
-  const Restore = (() => {
-    const IDAN = 'キシチニヒミリギジヂビピ';
-    const SMALLY = { 'ヤ': 'ャ', 'ユ': 'ュ', 'ヨ': 'ョ' };
-    /* 促音・複合の頻出語ミニ辞書(並字形→復元形・同字数) */
-    const DICT = {
-      'チヨツト':'チョット','ヤツパリ':'ヤッパリ','ヤツト':'ヤット','ズツト':'ズット',
-      'モツト':'モット','キツト':'キット','サツキ':'サッキ','ハツキリ':'ハッキリ',
-      'ビツクリ':'ビックリ','ユツクリ':'ユックリ','マツスグ':'マッスグ',
-      'マツテ':'マッテ','マツタ':'マッタ','イツテ':'イッテ','イツタ':'イッタ',
-      'カツテ':'カッテ','カツタ':'カッタ','ヨカツタ':'ヨカッタ','ワカツタ':'ワカッタ',
-      'アツタ':'アッタ','ダツタ':'ダッタ','ナツタ':'ナッタ','ノツテ':'ノッテ',
-      'シツテ':'シッテ','シツタ':'シッタ','ガンバツテ':'ガンバッテ','ガンバツタ':'ガンバッタ',
-      'テツダツテ':'テツダッテ','イツシヨ':'イッショ','イツシヨウ':'イッショウ',
-      'イツパイ':'イッパイ','ゼツタイ':'ゼッタイ','ケツコウ':'ケッコウ','ケツコン':'ケッコン',
-      'ケツカ':'ケッカ','シツパイ':'シッパイ','シユツパツ':'シュッパツ','シユツチヨウ':'シュッチョウ',
-      'ハツピヨウ':'ハッピョウ','ザツシ':'ザッシ','ガツコウ':'ガッコウ','ガツキ':'ガッキ',
-      'ニツキ':'ニッキ','ミツカ':'ミッカ','ヨツカ':'ヨッカ','キツプ':'キップ','キツテ':'キッテ',
-      'セツト':'セット','ネツト':'ネット','カツト':'カット','カツプ':'カップ','コツプ':'コップ',
-      'マツプ':'マップ','アツプ':'アップ','トツプ':'トップ','ストツプ':'ストップ',
-      'シヨツプ':'ショップ','ポツプ':'ポップ','スポツト':'スポット','チケツト':'チケット',
-      'ラケツト':'ラケット','ロケツト':'ロケット','ロボツト':'ロボット','ポケツト':'ポケット',
-      'ジヤケツト':'ジャケット','ペツト':'ペット','ベツド':'ベッド','バツグ':'バッグ',
-      'バツテリー':'バッテリー','サツカー':'サッカー','キツク':'キック','ロツク':'ロック',
-      'ラツキー':'ラッキー','クツキー':'クッキー','スイツチ':'スイッチ','タツチ':'タッチ',
-      'マツチ':'マッチ','サンドイツチ':'サンドイッチ','メツセージ':'メッセージ',
-      'マツサージ':'マッサージ','シヤツ':'シャツ','ニツポン':'ニッポン','サツポロ':'サッポロ',
-      'ホツカイドウ':'ホッカイドウ','ロツポンギ':'ロッポンギ','グツズ':'グッズ'
-    };
-    /* 並字表記のままの語義も持つ曖昧語(拗音復元を保留して文脈判定) */
-    const AMBI = new Set(['キヨウ', 'シヨウ', 'リヨウ', 'ビヨウ', 'ヒヤク', 'シヤ', 'リユウ', 'ジユウ']);
-    function yoon(w) {                 // 拗音復元ルール: イ段+ヤユヨ → 小書き化
-      let out = '';
-      for (let i = 0; i < w.length; i++) {
-        const c = w[i], n = w[i + 1];
-        if (IDAN.includes(c) && SMALLY[n]) { out += c + SMALLY[n]; i++; }
-        else out += c;
-      }
-      return out;
-    }
-    function restoreWord(w, next) {    // → {text, conf, alt}
-      if (!w) return { text: w, conf: true, alt: null };
-      if (DICT[w]) return { text: DICT[w], conf: true, alt: null };
-      const restored = yoon(w);
-      if (restored === w) return { text: w, conf: true, alt: null };   // 拗音なし
-      if (AMBI.has(w)) {
-        // 共起ルール(簡易バイグラム): 後続語の型で判定
-        if (next && /イ$/.test(next)) return { text: restored, conf: true, alt: null }; // 用言(形容詞) → 拗音
-        if (next === 'ナ') return { text: w, conf: true, alt: null };  // な形容詞の型 → 並字のまま
-        return { text: restored, conf: false, alt: w };                // 判定保留 → タップで切替
-      }
-      return { text: restored, conf: true, alt: null };
-    }
-    function restoreWords(words) {
-      return words.map((w, i) => restoreWord(w, words[i + 1] || null));
-    }
-    return { restoreWords, yoon, DICT, AMBI };
-  })();
 
   /* ---------- 復調器(パルス幅復調+周回冗長) ----------
    * feed(tMs, luma) を毎フレーム呼ぶ。短点長はVVVから自動測定。
@@ -707,10 +646,10 @@ const FC = (() => {
   class Demodulator {
     constructor(onEvent, opts = {}) {
       this.onEvent = onEvent || (() => {});
-      this.WINDOW_MS = opts.windowMs || 2300;   // min/max追跡窓
+      this.WINDOW_MS = opts.windowMs || 2300;
       this.MIN_CONTRAST = opts.minContrast || 8;
       this.HYST = opts.hyst || 0.11;
-      this.U_MIN = 25; this.U_MAX = 420;        // 許容短点長(ms)
+      this.U_MIN = 25; this.U_MAX = 420;
       this.samples = [];
       this.reset();
     }
@@ -724,7 +663,6 @@ const FC = (() => {
       this.u = 0;
       this.ons = [];
       this.elems = '';
-      this.mode = 'intl';
       this.charClosed = true;
       this.spaceEmitted = true;
       this.current = [];
@@ -736,7 +674,6 @@ const FC = (() => {
     _setState(s) { if (s !== this.state) { this.state = s; this._emitState(); } }
 
     feed(t, luma) {
-      // --- 適応閾値(移動min/max) ---
       this.win.push({ t, l: luma });
       while (this.win.length && t - this.win[0].t > this.WINDOW_MS) this.win.shift();
       let mn = Infinity, mx = -Infinity;
@@ -764,7 +701,6 @@ const FC = (() => {
       }
 
       if (newBin !== this.bin) {
-        // 交差時刻を線形補間(中央値thrMid基準)
         const p = this.lastCross;
         let tEdge = t;
         if (p && p.l !== luma) {
@@ -793,21 +729,20 @@ const FC = (() => {
 
     _onSegment(level, dur) {
       if (this.state === 'no_signal') return;
-      if (level === 1) {                       // 明期間 → 短点/長点
+      if (level === 1) {                 // 明期間 → 短点/長点
         if (this.state === 'idle') this._calib(dur);
         if (!this.u) return;
-        if (dur < 0.35 * this.u) return;       // グリッチ
+        if (dur < 0.35 * this.u) return; // グリッチ
         const isDot = dur < 2 * this.u;
         this.elems += isDot ? '.' : '-';
-        const est = isDot ? dur : dur / 3;     // 短点長へ追従
+        const est = isDot ? dur : dur / 3;
         if (est > this.U_MIN * 0.6 && est < this.U_MAX * 1.4)
           this.u = 0.87 * this.u + 0.13 * est;
         this.charClosed = false;
-      } else {                                 // 暗期間 → ギャップ分類
+      } else {                           // 暗期間 → ギャップ分類
         if (!this.u) return;
         if (dur > 0.5 * this.u && dur < 1.6 * this.u) {
-          // 符号内ギャップ(1u)からも短点長を学習: 明期間だけで学習すると
-          // 実測バイアスでuが長めに偏り、語間判定を取り逃すため両側から補正
+          // 符号内ギャップ(1u)からも短点長を学習(明暗の実測バイアス相殺)
           this.u = 0.92 * this.u + 0.08 * dur;
         }
         if (dur >= 2 * this.u && !this.charClosed) this._closeChar();
@@ -815,10 +750,9 @@ const FC = (() => {
       }
     }
 
-    /* VVVで短点長を校正: 候補uを走査して短点群+長点群の最良クラスタを探す
-     * (信号立ち上がり時の閾値ウォームアップで混入するゴミセグメントに耐性) */
+    /* VVVで短点長を校正: 候補uを走査して短点群+長点群の最良クラスタを探す */
     _calib(dur) {
-      if (dur < this.U_MIN * 0.4 || dur > this.U_MAX * 4.6) return;  // 論外は無視
+      if (dur < this.U_MIN * 0.4 || dur > this.U_MAX * 4.6) return;
       this.ons.push(dur);
       if (this.ons.length > 16) this.ons.shift();
       if (this.ons.length < 8) return;
@@ -837,7 +771,6 @@ const FC = (() => {
       if (best && bestScore >= 8) {
         this.u = best;
         this.elems = '';
-        this.mode = 'intl';
         this._setState('synced');
       }
     }
@@ -848,8 +781,7 @@ const FC = (() => {
       this.elems = '';
       if (!code) return;
       if (this.state === 'synced') {
-        if (code === PRO.CT) {                 // 本文開始
-          this.mode = 'wabun';
+        if (code === PRO.CT) {           // 本文開始
           this.current = [];
           this.spaceEmitted = true;
           this._setState('body');
@@ -857,36 +789,17 @@ const FC = (() => {
         } else if (code === PRO.SK) {
           this._finalize('sk');
         }
-        return;                                // V等は無視
+        return;                          // V等は無視
       }
       if (this.state !== 'body') return;
-      if (this.mode === 'wabun') {
-        if (code === PRO.SN) { this.mode = 'intl'; return; }   // ラタ: 欧文復帰
-        const ch = WABUN_REV[code];
-        if (ch === '゛' || ch === '゜') this._applyMark(ch);
-        else this._pushChar(ch || '□');
-      } else {
-        if (code === PRO.DO) { this.mode = 'wabun'; return; }  // ホレ: 和文開始
-        if (code === PRO.AR) { this._endCycle(); return; }
-        if (code === PRO.SK) { this._finalize('sk'); return; }
-        if (code === PRO.CT) { this.current = []; this._update(); return; }
-        this._pushChar(INTL_REV[code] || '□');
-      }
+      if (code === PRO.AR) { this._endCycle(); return; }
+      if (code === PRO.SK) { this._finalize('sk'); return; }
+      if (code === PRO.CT) { this.current = []; this._update(); return; }
+      this._pushChar(INTL_REV[code] || '□');
     }
     _pushChar(ch) {
       this.current.push(ch);
       this.spaceEmitted = false;
-      this._update();
-    }
-    _applyMark(mark) {                         // 濁点/半濁点: 直前文字に合成
-      for (let i = this.current.length - 1; i >= 0; i--) {
-        const c = this.current[i];
-        if (c === ' ') break;
-        const comp = mark === '゛' ? DAKU_REV[c] : HANDAKU_REV[c];
-        if (comp) { this.current[i] = comp; this._update(); return; }
-        break;
-      }
-      this.current.push(mark);
       this._update();
     }
     _emitSpace() {
@@ -896,7 +809,7 @@ const FC = (() => {
         this._update();
       }
     }
-    _endCycle() {                              // AR受信 or 長ギャップ: 周回確定
+    _endCycle() {                        // AR受信 or 長ギャップ: 周回確定
       while (this.current.length && this.current[this.current.length - 1] === ' ')
         this.current.pop();
       if (this.current.length) {
@@ -905,7 +818,6 @@ const FC = (() => {
         this.onEvent({ type: 'cycle', n: this.cycles.length });
       }
       this.current = [];
-      this.mode = 'intl';
       this._setState('synced');
       this._update();
     }
@@ -939,10 +851,10 @@ const FC = (() => {
     }
   }
 
-  return { WABUN, INTL, PRO, WABUN_REV, INTL_REV,
-           hiraToKata, isKana, decomposeKana, morseOf, displayCells, R2K,
+  return { INTL, INTL_REV, PRO,
+           hiraToKata, kanaToRomaji, romajiToKana, wordDisplay, morseOf, R2K,
            buildItems, itemsToSeq, buildTx, buildSkSeq, estimateSeconds,
-           Restore, Demodulator };
+           Demodulator };
 })();
 if (typeof module !== 'undefined') module.exports = FC;
 /* ==== MABATAKI SIGNAL CORE END ==== */
@@ -1186,8 +1098,8 @@ $('manualOpen').onclick = () => {
 '<ul>' +
 '<li>使える文字: <b>カタカナ・英数字・ー・?</b>(漢字・スペースは不可。ひらがなは自動でカタカナ化)</li>' +
 '<li>ローマ字直接入力で即カタカナ表示(WATASHI→ワタシ)。英単語を打つときは「自動変換」をOFF</li>' +
-'<li>英数字は文字種から自動判別され、国際モールスで送信(切替符号ホレ/ラタを自動挿入)</li>' +
-'<li>小書き(ッ・ャ等)は電報の流儀で並字(ツ・ヤ)として送信 ── 受信側が文脈で復元します</li>' +
+'<li>カタカナは可逆ローマ字(ん=NN・っ=子音重複など)に変換して国際モールスで送信し、受信側でカナに復元。拗音・促音(キョ・ッ等)も正確に伝わります</li>' +
+'<li>英字を含む語は文字種から自動判別し、英字マーカー(*)付きで送信 ── 受信側は無変換で表示</li>' +
 '<li>空のマスでバックスペース → 前のマスに戻る(マス削除)</li>' +
 '</ul>' +
 
@@ -1226,9 +1138,7 @@ $('manualOpen').onclick = () => {
 '<li><b>淡色</b>=暫定(照合1周のみ)。リピートの周回照合で一致すると<b>本来色</b>=確定に昇格</li>' +
 '<li>3周以降は多数決で訂正され、訂正文字は一瞬ハイライト</li>' +
 '<li>1回送信では照合できないため暫定色のまま ── 誤りが混じり得る点に注意</li>' +
-'<li><b>点線の語</b>=小書き復元の推定保留(キョウ⇄キヨウ等)。<b>タップで候補が切り替わり</b>ます</li>' +
-'<li>濁点は独立符号のため「カ→ガ」と一瞬化けるのは正常</li>' +
-'<li>「符号」トグルで復元前の真の受信内容(・−表記)を確認できます</li>' +
+'<li>「ローマ字」トグルで伝送された原文、「符号」トグルでモールス(・−表記)を確認できます</li>' +
 '<li>モニタはリセットボタンを押すまで保持されます</li>' +
 '</ul>' +
 
@@ -1372,90 +1282,86 @@ sampleCanvas.width = 8; sampleCanvas.height = 8;
 const sctx = sampleCanvas.getContext('2d', { willReadFrequently: true });
 
 // 受信表示の状態(demod生成前に宣言: 生成時にstatusイベントが発火するため)
-let dispMode = 'kana';                       // 'kana' | 'raw'(モールス・−表記)
+let dispMode = 'kana';                       // 'kana'(復元) | 'roma'(原文) | 'code'(・−表記)
 let rxCells = [];                            // 受信中電文の合議セル {ch,st}
 let prevCells = [];
 const tapeMsgs = [];                         // 確定電文(新しい順) {cells,text}
 const demod = new FC.Demodulator(onDemodEvent);
 
 $('modeKana').onclick = () => setMode('kana');
-$('modeRaw').onclick = () => setMode('raw');
+$('modeRoma').onclick = () => setMode('roma');
+$('modeRaw').onclick = () => setMode('code');
 function setMode(m) {
   dispMode = m;
   $('modeKana').classList.toggle('active', m === 'kana');
-  $('modeRaw').classList.toggle('active', m === 'raw');
+  $('modeRoma').classList.toggle('active', m === 'roma');
+  $('modeRaw').classList.toggle('active', m === 'code');
   renderMonitor();
 }
-let liveToggles = {};                        // 曖昧語のタップ切替状態(受信中電文)
 $('rxReset').onclick = () => {
   tapeMsgs.length = 0;
-  rxCells = []; prevCells = []; liveToggles = {};
+  rxCells = []; prevCells = [];
   demod.clearMessage();
   $('rxInfo').textContent = '';
   renderMonitor();
 };
 
-/* セル列を語単位で描画: カナ表示では小書き復元(Restore)を適用。
- * 復元確信度が低い語は点線の暫定色になり、タップで候補が切り替わる。
- * 「符号」表示は復元前の真の受信内容の確認手段として機能する */
-function renderCellSeg(cells, toggles, onTap, prevC) {
+/* セル列を描画:
+ *  カナ    … 語単位でローマ字→カナ復元(*付き英字語・数字語は無変換)。
+ *            カナは文字数が変わるため語単位で暫定/確定を彩色
+ *  ローマ字 … 伝送された原文をそのまま文字単位で表示
+ *  符号    … モールス(・−)表記。真の受信内容の確認手段 */
+function renderCellSeg(cells, prevC) {
   const seg = document.createElement('span');
-  const cellCls = (i, extra) => {
+  const cellCls = i => {
     let cls = cells[i].st === 'conf' ? '' : 'prov';
     if (prevC && prevC[i] && prevC[i].ch !== cells[i].ch) cls += ' fix';  // 多数決訂正
-    if (extra) cls += ' ' + extra;
     return cls.trim();
   };
-  if (dispMode === 'raw') {                  // モールス符号列(復元前)
+  if (dispMode !== 'kana') {                 // 原文/符号: 文字単位
     for (let i = 0; i < cells.length; i++) {
       const sp = document.createElement('span');
-      const cls = cellCls(i, '');
+      const cls = cellCls(i);
       if (cls) sp.className = cls;
-      sp.textContent = FC.morseOf(cells[i].ch) + ' ';
+      sp.textContent = dispMode === 'code' ? FC.morseOf(cells[i].ch) + ' ' : cells[i].ch;
       seg.appendChild(sp);
     }
     return seg;
   }
   const words = cells.map(c => c.ch).join('').split(' ');
-  const rest = FC.Restore.restoreWords(words);
   let ci = 0;
   words.forEach((w, k) => {
     if (k > 0) {                             // 語間スペースのセル
       const sp = document.createElement('span');
-      const cls = cellCls(ci, '');
+      const cls = cellCls(ci);
       if (cls) sp.className = cls;
       sp.textContent = ' ';
       seg.appendChild(sp); ci++;
     }
-    const r = rest[k];
-    const disp = (!r.conf && toggles && toggles[k]) ? r.alt : r.text;
-    const wordSpan = document.createElement('span');
-    if (!r.conf && onTap) {
-      wordSpan.className = 'ambiWord';
-      wordSpan.title = '小書き復元の推定保留 ── タップで候補切替';
-      wordSpan.onclick = () => onTap(k);
-    }
+    let allConf = true, changed = false;
     for (let j = 0; j < w.length; j++) {
-      const sp = document.createElement('span');
-      const cls = cellCls(ci, r.conf ? '' : 'ambi');
-      if (cls) sp.className = cls;
-      sp.textContent = (disp && disp[j]) || w[j];
-      wordSpan.appendChild(sp); ci++;
+      if (cells[ci + j].st !== 'conf') allConf = false;
+      if (prevC && prevC[ci + j] && prevC[ci + j].ch !== cells[ci + j].ch) changed = true;
     }
-    seg.appendChild(wordSpan);
+    const span = document.createElement('span');
+    let cls = allConf ? '' : 'prov';
+    if (changed) cls += ' fix';
+    if (cls.trim()) span.className = cls.trim();
+    span.textContent = FC.wordDisplay(w);
+    seg.appendChild(span);
+    ci += w.length;
   });
   return seg;
 }
 
 /* 受信モニタ: 紙テープ式。受信中の電文は左端で成長し、確定電文は右へ。
- * 暫定(照合1周のみ)の文字は淡色、周回一致で本来色に昇格。
+ * 暫定(照合1周のみ)は淡色、周回一致で本来色に昇格。
  * 多数決による訂正は一瞬ハイライト。リセットボタンを押すまで保持 */
 function renderMonitor() {
   const el = $('liveLine');
   el.innerHTML = '';
   if (rxCells.length) {
-    el.appendChild(renderCellSeg(rxCells, liveToggles,
-      k => { liveToggles[k] = !liveToggles[k]; renderMonitor(); }, prevCells));
+    el.appendChild(renderCellSeg(rxCells, prevCells));
   }
   const cur = document.createElement('span');
   cur.className = 'cur'; cur.innerHTML = '&nbsp;';
@@ -1464,9 +1370,7 @@ function renderMonitor() {
     const sep = document.createElement('span');
     sep.className = 'tapeSep'; sep.textContent = ' ◇ ';
     el.appendChild(sep);
-    if (!m.toggles) m.toggles = {};
-    el.appendChild(renderCellSeg(m.cells, m.toggles,
-      k => { m.toggles[k] = !m.toggles[k]; renderMonitor(); }, null));
+    el.appendChild(renderCellSeg(m.cells, null));
   }
   prevCells = rxCells.slice();
 }
@@ -1486,9 +1390,8 @@ function onDemodEvent(ev) {
   } else if (ev.type === 'cycle') {
     $('rxInfo').textContent = `周回${ev.n}を受信 ── 位置照合中(本来色=確定/淡色=暫定) ・ ${timeStamp()}`;
   } else if (ev.type === 'final') {
-    tapeMsgs.unshift({ cells: ev.cells, text: ev.text, toggles: {} });
+    tapeMsgs.unshift({ cells: ev.cells, text: ev.text });
     if (tapeMsgs.length > 20) tapeMsgs.pop();
-    liveToggles = {};
     const allConf = ev.cells.every(c => c.st === 'conf');
     $('rxInfo').textContent = (ev.reason === 'sk' ? '✓ 受信終了(SK受信)' : '□ 信号断のため保存') +
       (allConf ? ' ── 周回一致で確定済み' : ' ── 暫定文字を含む(照合1周のみ)') + ' ・ ' + timeStamp();
