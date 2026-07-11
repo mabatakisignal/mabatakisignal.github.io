@@ -305,11 +305,18 @@
     color:var(--ink); border:1px solid var(--plate-edge); border-radius:6px; cursor:pointer;
     background:linear-gradient(180deg,#f2f0ea,#d5d2c9); box-shadow:0 2px 0 var(--plate-edge);}
   .miniKey:active{transform:translateY(2px); box-shadow:none;}
-  /* CRT内リセットキー(メインスクリーン右下) */
-  .crtKey{position:absolute; right:10px; bottom:10px; z-index:4;
-    background:linear-gradient(180deg,#3a3628,#221f16); color:#ffb000;
-    border-color:#5c4a24; box-shadow:0 2px 0 #15140f; opacity:.85;}
-  .crtKey:hover{opacity:1;}
+  /* 入力操作列(トグル+物理ボタン風キー) */
+  .inputRow{display:flex; align-items:center; gap:12px; margin-top:12px; flex-wrap:wrap;}
+  .inputKey{padding:7px 16px; font-size:12px; letter-spacing:1.5px;
+    background:linear-gradient(180deg,#f4f2ec,#cfccc3);
+    box-shadow:0 3px 0 var(--plate-edge), 0 4px 7px rgba(0,0,0,.22), inset 0 1px 0 #fff;}
+  .inputKey:active{transform:translateY(3px); box-shadow:0 1px 0 var(--plate-edge);}
+  .inputKey.on{background:linear-gradient(180deg,#ffd77a,#e0a52a); border-color:#8a5f14;
+    color:#3a2a08; font-weight:700;
+    box-shadow:0 1px 0 #8a5f14, inset 0 1px 3px rgba(0,0,0,.3), 0 0 10px rgba(255,176,0,.5);}
+  /* 入力モードOFF時はマスを操作不可(直接クリック入力は不可) */
+  #txScreen.locked{pointer-events:none;}
+  #txScreen.locked .wordInput{opacity:.75;}
   /* 確定層: 紙テープ */
   #msgs{margin-top:12px;}
   .tape{position:relative; background:var(--paper); color:var(--paper-ink);
@@ -376,8 +383,12 @@
           <video id="video" autoplay playsinline muted></video>
           <canvas id="roiCanvas"></canvas>
         </div>
-        <button class="miniKey crtKey" id="txReset" title="入力した電文を消去">リセット</button>
       </div>
+    </div>
+    <div class="inputRow">
+      <div class="check" style="margin:0"><input type="checkbox" id="kanaMode" checked><span>アルファベット→カナ</span></div>
+      <button class="miniKey inputKey" id="txEdit">文字入力</button>
+      <button class="miniKey inputKey" id="txReset">文字リセット</button>
     </div>
     <div class="ctlRow">
       <div><label>ROIサイズ(受信 ── 白枠をドラッグで移動)</label>
@@ -385,7 +396,6 @@
       <div><label>カメラズーム(受信 ── 対応機種のみ)</label>
         <input type="range" id="zoom" min="1" max="8" step="0.1" value="1" disabled></div>
     </div>
-    <div class="check"><input type="checkbox" id="kanaMode" checked><span>アルファベット→カナ</span></div>
 
     <!-- 受信モニタ(紙テープ式・保持) -->
     <div class="liveWrap">
@@ -998,12 +1008,41 @@ function gatherWords() {
   return [...fieldsEl.querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean);
 }
 
-/* 電文リセット(メインスクリーン右下) */
-$('txReset').onclick = () => {
+/* ---- 入力モード ----
+ * メインスクリーンの直接クリック入力は不可。「文字入力」キーで開始し、
+ * 他の操作(ボタン・つまみ等)を触ると解除される */
+let editMode = false;
+function setEditMode(on) {
+  editMode = on;
+  $('txEdit').classList.toggle('on', on);
+  $('txScreen').classList.toggle('locked', !on);
+  if (on) {
+    const fs = fieldsEl.querySelectorAll('input');
+    const last = fs[fs.length - 1];
+    (last || makeField()).focus();
+  } else {
+    const a = document.activeElement;
+    if (a && a.classList && a.classList.contains('wordInput')) a.blur();
+  }
+}
+$('txEdit').onclick = e => { e.stopPropagation(); setEditMode(!editMode); };
+
+/* 文字リセット(入力した電文を消去) */
+$('txReset').onclick = e => {
+  e.stopPropagation();
   fieldsEl.innerHTML = '';
-  makeField().focus();
+  makeField();
   updateEstimate();
+  setEditMode(false);
 };
+
+// 入力欄・文字入力キー以外を操作したら入力モードを解除
+document.addEventListener('pointerdown', e => {
+  if (!editMode) return;
+  if (e.target.closest('#txScreen') || e.target.closest('#txEdit')) return;
+  setEditMode(false);
+}, true);
+setEditMode(false);
 
 function updateEstimate() {
   const words = gatherWords();
@@ -1170,27 +1209,36 @@ $('manualOpen').onclick = () => {
 '<rect x="84" y="184" width="90" height="26" rx="3" fill="none" stroke="#ffb000" stroke-dasharray="3 2"/>' +
 '<text x="129" y="202" font-size="11" fill="#ffd060" text-anchor="middle">ヤマ</text>' +
 '<rect x="182" y="184" width="90" height="26" rx="3" fill="none" stroke="#5c4a24" stroke-dasharray="3 2"/>' +
-'<rect x="368" y="252" width="50" height="16" rx="3" fill="#2a2618" stroke="#5c4a24"/>' +
-'<text x="393" y="264" font-size="8" fill="#ffb000" text-anchor="middle">リセット</text>' +
 '<text x="448" y="222" font-size="8" fill="#6b675c">② メイン</text>' +
 '<text x="448" y="236" font-size="8" fill="#6b675c">   スクリーン</text>' +
+'<rect x="70" y="282" width="100" height="16" rx="3" fill="#e8e5dd" stroke="#8f8c83"/>' +
+'<text x="120" y="294" font-size="8" fill="#3a3831" text-anchor="middle">アルファベット→カナ</text>' +
+'<rect x="178" y="282" width="52" height="16" rx="3" fill="#f0eee7" stroke="#8f8c83"/>' +
+'<text x="204" y="294" font-size="8" fill="#3a3831" text-anchor="middle">文字入力</text>' +
+'<rect x="238" y="282" width="62" height="16" rx="3" fill="#f0eee7" stroke="#8f8c83"/>' +
+'<text x="269" y="294" font-size="8" fill="#3a3831" text-anchor="middle">文字リセット</text>' +
+'<text x="448" y="294" font-size="8" fill="#6b675c">   入力操作</text>' +
+// スライダー(ROI/ズーム)
+'<line x1="72" y1="310" x2="168" y2="310" stroke="#8f8c83" stroke-width="2"/><circle cx="120" cy="310" r="4" fill="#55524a"/>' +
+'<line x1="196" y1="310" x2="292" y2="310" stroke="#8f8c83" stroke-width="2"/><circle cx="216" cy="310" r="4" fill="#55524a"/>' +
+'<text x="448" y="313" font-size="8" fill="#6b675c">   ROI/ズーム</text>' +
 // 受信モニタ
-'<rect x="70" y="288" width="356" height="52" rx="8" fill="#0d1a0c" stroke="#23231f" stroke-width="3"/>' +
-'<text x="84" y="312" font-size="11" fill="#8affa8">ヤマ ネコ / テスト</text>' +
-'<text x="84" y="330" font-size="7" fill="#3f6a47">12:34:56 周回2 照合中</text>' +
-'<text x="448" y="316" font-size="8" fill="#6b675c">③ 受信モニタ</text>' +
+'<rect x="70" y="322" width="356" height="46" rx="8" fill="#0d1a0c" stroke="#23231f" stroke-width="3"/>' +
+'<text x="84" y="344" font-size="11" fill="#8affa8">ヤマ ネコ / テスト</text>' +
+'<text x="84" y="360" font-size="7" fill="#3f6a47">12:34:56 周回2 照合中</text>' +
+'<text x="448" y="348" font-size="8" fill="#6b675c">③ 受信モニタ</text>' +
 // 計器
-'<rect x="70" y="352" width="170" height="40" rx="6" fill="#0d1408" stroke="#23231f" stroke-width="2"/>' +
-'<path d="M100 386 L118 362" stroke="#8affa8" stroke-width="2"/><text x="155" y="378" font-size="8" fill="#4a7a52">波形/メーター</text>' +
-'<rect x="256" y="352" width="170" height="40" rx="6" fill="#0d1408" stroke="#23231f" stroke-width="2"/>' +
-'<text x="341" y="376" font-size="8" fill="#4dff7a" text-anchor="middle">コントラスト/fps/状態/符号</text>' +
-'<text x="448" y="376" font-size="8" fill="#6b675c">④ 計器類</text>' +
+'<rect x="70" y="378" width="170" height="30" rx="6" fill="#0d1408" stroke="#23231f" stroke-width="2"/>' +
+'<path d="M96 402 L114 384" stroke="#8affa8" stroke-width="2"/><text x="150" y="398" font-size="8" fill="#4a7a52">波形/メーター</text>' +
+'<rect x="256" y="378" width="170" height="30" rx="6" fill="#0d1408" stroke="#23231f" stroke-width="2"/>' +
+'<text x="341" y="397" font-size="8" fill="#4dff7a" text-anchor="middle">コントラスト/fps/状態/符号</text>' +
+'<text x="448" y="398" font-size="8" fill="#6b675c">④ 計器類</text>' +
 // ダイヤル/ニキシー
-'<circle cx="100" cy="418" r="12" fill="#b5b2a8" stroke="#6f6c63"/><path d="M100 418 L100 409" stroke="#f2efe6" stroke-width="2"/>' +
-'<text x="150" y="421" font-size="8" fill="#3a3831">速度ダイヤル</text>' +
-'<rect x="256" y="406" width="170" height="24" rx="4" fill="#1c0d04" stroke="#23231f" stroke-width="2"/>' +
-'<text x="341" y="422" font-size="10" fill="#ff9b4a" text-anchor="middle">006 字   13.1 SEC</text>' +
-'<text x="448" y="422" font-size="8" fill="#6b675c">⑤ 設定/計時</text>' +
+'<circle cx="94" cy="424" r="10" fill="#b5b2a8" stroke="#6f6c63"/><path d="M94 424 L94 417" stroke="#f2efe6" stroke-width="2"/>' +
+'<text x="140" y="427" font-size="8" fill="#3a3831">速度ダイヤル</text>' +
+'<rect x="256" y="414" width="170" height="20" rx="4" fill="#1c0d04" stroke="#23231f" stroke-width="2"/>' +
+'<text x="341" y="428" font-size="9" fill="#ff9b4a" text-anchor="middle">006 字   13.1 SEC</text>' +
+'<text x="448" y="428" font-size="8" fill="#6b675c">⑤ 設定/計時</text>' +
 '</svg>' +
 '<p class="cap">操作パネル各部(実機の配置に対応)</p>' +
 
@@ -1211,8 +1259,10 @@ $('manualOpen').onclick = () => {
 '光の点滅に敏感な方は発作等を誘発するおそれがあります。画面は伏せ、状態はビーコン音で確認を。</div>' +
 
 '<h2>3. メインスクリーン ② ── 電文入力</h2>' +
-'<p>電文は<b>分かち書き</b>で入力します。<b>1単語=1マス</b>、単語ごとに<b>リターン</b>で次のマスが生まれます。' +
-'右下の<b>リセット</b>で入力内容を消去できます。受信中はこの画面がカメラモニタになります。</p>' +
+'<p>画面下の<b>「文字入力」キー</b>を押すと入力が始まります(画面を直接クリックしても入力できません)。' +
+'他のボタンやつまみを操作すると入力は解除されるので、続きを書くときは再び「文字入力」を押します。' +
+'<b>「文字リセット」キー</b>で入力内容を消去。受信中はこの画面がカメラモニタになります。</p>' +
+'<p>電文は<b>分かち書き</b>で入力します。<b>1単語=1マス</b>、単語ごとに<b>リターン</b>で次のマスが生まれます。</p>' +
 '<ul>' +
 '<li>使える文字: <b>カタカナ・英数字・ー・?</b>(漢字・スペースは不可。ひらがなは自動でカタカナ化)</li>' +
 '<li><b>アルファベット→カナ</b>がONだと、打ったローマ字が即カタカナになります(WATASHI→ワタシ)。英単語をそのまま送るときはOFFに</li>' +
