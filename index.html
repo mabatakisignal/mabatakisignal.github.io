@@ -50,15 +50,18 @@
   header h1 .tag{font-size:9px; letter-spacing:2px; color:#45423a; vertical-align:middle; font-style:italic;}
   header p{margin:8px 0 0 2px; color:var(--ink-dim); font-size:10.5px; letter-spacing:1px;}
   /* 丸押しボタン+ランプ */
-  .pbRow{display:flex; gap:22px; justify-content:center; margin-top:16px; align-items:stretch; flex-wrap:wrap;}
+  .pbRow{display:flex; gap:20px; justify-content:space-between; margin-top:16px;
+    align-items:stretch; flex-wrap:wrap;}
   .pb{display:flex; flex-direction:column; align-items:center; gap:7px;}
-  /* 送信グループ(筐体印字の赤枠) */
+  /* 操作グループ(筐体印字の枠): 送信=赤 / 受信=青緑 */
   .pbGroup{position:relative; display:flex; gap:20px; padding:16px 18px 12px;
     border:2px solid #a33326; border-radius:12px;}
+  .pbGroup.rx{border-color:#1d7a72;}
   .pbGroupLabel{position:absolute; top:-9px; left:14px; padding:0 7px;
     font-size:10px; letter-spacing:3px; color:#a33326; background:#d0cdc5;
     text-shadow:0 1px 0 rgba(255,255,255,.6);}
-  .pbSolo{padding:16px 6px 12px;}
+  .pbGroup.rx .pbGroupLabel{color:#1d7a72;}
+  .lamp.cyan.on{background:#3fe0d0; border-color:#12615a; box-shadow:0 0 9px rgba(63,224,208,.95);}
   .pushBtn{width:56px; height:56px; border-radius:50%; border:1px solid #6f6c63; cursor:pointer;
     background:radial-gradient(circle at 35% 30%, #f6f4ee, #c6c3ba 60%, #a19e95);
     box-shadow:0 5px 0 #8a877e, 0 6px 10px rgba(0,0,0,.3), inset 0 1px 0 #fff;}
@@ -340,14 +343,21 @@
           <button class="pushBtn red" id="txStart" title="送信開始(もう一度押すと停止)"></button>
           <span class="pbLabel">送 信</span></div>
         <div class="pb"><span class="lamp" id="lampStop"></span>
-          <button class="pushBtn dark" id="stopKey" title="送信停止(SKを打って停止)"></button>
+          <button class="pushBtn dark" id="stopKey" title="送信停止"></button>
           <span class="pbLabel">停 止</span></div>
       </div>
-      <div class="pb pbSolo"><span class="lamp green" id="lampRx"></span>
-        <button class="pushBtn green" id="rxKey" title="カメラ起動/停止"></button>
-        <span class="pbLabel">受 信</span></div>
+      <div class="pbGroup rx">
+        <span class="pbGroupLabel">受 信</span>
+        <div class="pb"><span class="lamp green" id="lampRx"></span>
+          <button class="pushBtn green" id="rxKey" title="カメラ起動/停止"></button>
+          <span class="pbLabel">受 信</span></div>
+        <div class="pb"><span class="lamp cyan" id="lampTone"></span>
+          <button class="pushBtn blue" id="toneKey" title="受信音(受信波形から電信音を再現)"></button>
+          <span class="pbLabel">トーン</span></div>
+      </div>
     </div>
-    <div class="fieldHint" style="text-align:center">停止=停止ボタン/送信ボタン再押し/発光面クリック(即時停止)。受信はもう一度押すと停止。</div>
+    <div class="fieldHint" style="text-align:center">停止=停止ボタン/送信ボタン再押し/発光面クリック(即時停止)。受信はもう一度押すと停止。
+      トーン=受信した明滅を電信音で再生(受信中のみ)。</div>
     <div class="warnBox"><span class="warnTri">⚠</span>
       <div class="warnTxt"><b>送信中は点滅する画面を直視しないでください。</b>
       全画面の明滅は目の負担が大きく、光の点滅に敏感な方は発作等を誘発するおそれがあります。</div></div>
@@ -1043,6 +1053,36 @@ const beacon = (() => {
   return { ensure, set, off };
 })();
 
+/* ---- 受信トーン(受信波形の明暗から電信音を再現) ---- */
+const rxTone = (() => {
+  let ctx = null, gain = null, on = false, cur = -1;
+  function ensure() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume().catch(() => {}); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    ctx = new AC();
+    const osc = ctx.createOscillator();
+    osc.type = 'sine'; osc.frequency.value = 620;   // 送信ビーコン(770Hz)と区別
+    gain = ctx.createGain(); gain.gain.value = 0;
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start();
+  }
+  function toggle() {
+    on = !on;
+    if (on) ensure(); else set(0);
+    $('lampTone').classList.toggle('on', on);
+    return on;
+  }
+  function set(level) {                              // 復調器の2値(明/暗)をトーンに
+    if (!ctx || !gain || !on) return;
+    const target = level ? 0.06 : 0;
+    if (target !== cur) { cur = target; gain.gain.setTargetAtTime(target, ctx.currentTime, 0.004); }
+  }
+  function off() { if (gain && ctx) { cur = 0; gain.gain.setTargetAtTime(0, ctx.currentTime, 0.004); } }
+  return { toggle, set, off, isOn: () => on };
+})();
+$('toneKey').onclick = () => rxTone.toggle();
+
 /* ---- 送信ウィンドウ(ポップアップ発光面) ---- */
 let popWin = null;
 
@@ -1459,6 +1499,7 @@ async function startCamera() {
 
 function stopCamera() {
   stopSampling();
+  rxTone.off();
   stream?.getTracks().forEach(t => t.stop());
   stream = null; track = null;
   $('camView').classList.add('hidden');
@@ -1582,6 +1623,9 @@ function startSampling() {
       if (luma !== null) {
         lastLuma = luma;
         demod.feed(wall, luma);
+        // 受信トーン: 復調器の2値判定(明=1/暗=0)をそのまま音に。
+        // 十分なコントラストがあるときだけ鳴らす(ノイズでのバタつき防止)
+        rxTone.set((demod.range >= demod.MIN_CONTRAST && demod.bin === 1) ? 1 : 0);
         vuTarget = luma / 255;
         drawRoiOverlay(luma);
         drawWave();
