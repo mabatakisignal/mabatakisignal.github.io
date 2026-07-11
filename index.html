@@ -115,8 +115,8 @@
     border:1px solid var(--plate-edge);
     box-shadow:inset 0 2px 4px rgba(0,0,0,.3), 0 1px 0 rgba(255,255,255,.6);}
   /* 銘板(灰色の金属プレート・四隅リベット) */
-  .nameplate{display:inline-block; max-width:calc(100% - 76px);
-    padding:11px 20px 9px; border-radius:3px; border:1px solid #063236;
+  .nameplate{display:inline-block; max-width:calc(100% - 76px); box-sizing:border-box;
+    padding:11px 18px 9px; border-radius:3px; border:1px solid #063236;
     background-image:
       radial-gradient(circle 3px at 8px 8px, #cfe3e2 0 1px, #0a2b2e 1.6px 2.2px, transparent 3px),
       radial-gradient(circle 3px at calc(100% - 8px) 8px, #cfe3e2 0 1px, #0a2b2e 1.6px 2.2px, transparent 3px),
@@ -126,17 +126,27 @@
       linear-gradient(180deg,#14545a,#0a3e42 55%,#062f33);
     box-shadow:inset 0 1px 0 rgba(255,255,255,.18), inset 0 -2px 4px rgba(0,0,0,.35),
       0 1px 3px rgba(0,0,0,.35);}
-  /* 銘板は下駄(セリフ)の無いサンセリフで */
-  .npMain{font-size:17px; letter-spacing:4px; color:#ffffff; font-weight:600;
+  /* 銘板は下駄(セリフ)の無いサンセリフ。狭い画面でも組みが崩れないよう
+     字サイズ・字間を画面幅に追従させ、行の折り返しを禁止する */
+  .npMain{white-space:nowrap; color:#ffffff; font-weight:600;
+    font-size:clamp(12px, 3.6vw, 17px);
+    letter-spacing:clamp(1px, .8vw, 4px);
     font-family:"Helvetica Neue",Helvetica,Arial,"Hiragino Sans","Noto Sans JP",sans-serif;
     text-shadow:0 1px 1px rgba(0,0,0,.5);}
-  .npBy{font-size:9px; letter-spacing:2px; color:#e2ecec; font-style:normal;
-    font-weight:400; vertical-align:middle;
+  .npBy{display:inline-block; color:#e2ecec; font-style:normal; font-weight:400;
+    font-size:clamp(7px, 1.9vw, 9px); letter-spacing:clamp(.5px, .4vw, 2px);
+    vertical-align:middle; white-space:nowrap;
     font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;}
-  .npSub{margin-top:5px; font-size:10.5px; letter-spacing:2px; color:#ffffff;
+  .npSub{margin-top:5px; white-space:nowrap; color:#ffffff;
+    font-size:clamp(8px, 2.2vw, 10.5px); letter-spacing:clamp(.5px, .4vw, 2px);
     font-family:"Helvetica Neue",Helvetica,Arial,"Hiragino Sans","Noto Sans JP",sans-serif;
     text-shadow:0 1px 1px rgba(0,0,0,.45);
     border-top:1px solid rgba(255,255,255,.22); padding-top:5px;}
+  /* 狭い画面ではスピーカーグリルを外して銘板の幅を確保 */
+  @media (max-width:430px){
+    header::after{display:none;}
+    .nameplate{max-width:100%; padding:10px 12px 8px;}
+  }
   /* 丸押しボタン+ランプ */
   .pbRow{display:flex; gap:26px; justify-content:center; margin-top:16px;
     align-items:stretch; flex-wrap:wrap;}
@@ -1250,10 +1260,14 @@ $('txReset').onclick = e => {
 // 入力欄・文字入力キー以外を操作したら入力モードを解除
 document.addEventListener('pointerdown', e => {
   if (!editMode) return;
-  // 入力欄・文字入力キー・「アルファベット→カナ」トグルの操作は入力モードを維持する
-  if (e.target.closest('#txScreen') || e.target.closest('#txEdit') ||
-      e.target.closest('#kanaMode') || e.target.closest('label[for="kanaMode"]') ||
-      (e.target.closest('.check') && e.target.closest('.check').contains($('kanaMode')))) return;
+  const t = e.target;
+  // 入力欄・文字入力キー・「アルファベット→カナ」トグルの操作は入力モードを維持
+  if (t.closest('#txScreen') || t.closest('#txEdit') ||
+      (t.closest('.check') && t.closest('.check').contains($('kanaMode')))) return;
+  // 実際の操作要素(ボタン・つまみ・スイッチ類)に触れたときだけ解除する。
+  // 筐体の余白や文字などをうっかりクリックしても解除しない
+  const ctl = t.closest('button, input, select, .bpsOpt, .dial, .modeSwitch, summary, a');
+  if (!ctl) return;
   setEditMode(false);
 }, true);
 setEditMode(false);
