@@ -60,11 +60,12 @@
 
   /* ===== 電源OFF: 全モニタ・インジケータ沈黙 ===== */
   body.off .crt, body.off #rxMonitor, body.off #statScreen,
-  body.off .diag>div, body.off .nixie, body.off #vu, body.off #wave, body.off #meterFace{
+  body.off .diag>div, body.off .nixie, body.off #wave{
     background:#0a0d0a !important; box-shadow:inset 0 0 22px rgba(0,0,0,.95) !important;}
   body.off .wordInput, body.off #liveLine, body.off #rxInfo, body.off .diag .dv,
-  body.off .diag .dl, body.off .nx, body.off .nxUnit, body.off #statScreen *,
-  body.off #meterFace *{color:transparent !important; text-shadow:none !important;}
+  body.off .diag .dl, body.off .nx, body.off .nxUnit, body.off #statScreen *{
+    color:transparent !important; text-shadow:none !important;}
+  /* 物理メーターは消灯しない(文字盤は常に白)。針だけ0位置で静止 */
   body.off .wordInput{border-color:transparent !important; background:transparent !important;}
   body.off .lamp{background:#5a746a !important; box-shadow:inset 0 1px 2px rgba(0,0,0,.5) !important;}
   body.off .bpsOpt.sel .lamp{background:#5a746a !important; box-shadow:inset 0 1px 2px rgba(0,0,0,.5) !important;}
