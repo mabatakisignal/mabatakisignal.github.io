@@ -205,8 +205,7 @@
     box-shadow:0 0 3px rgba(0,0,0,.6);}
   .bpsLamps{flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:6px;}
   .bpsOpt{display:flex; flex-direction:column; align-items:center; gap:5px;
-    padding:6px 2px; cursor:pointer; border-radius:6px;}
-  .bpsOpt:hover{background:rgba(0,0,0,.05);}
+    padding:6px 2px; border-radius:6px; cursor:default; pointer-events:none;}
   .bpsTxt{font-size:10px; line-height:1.4; letter-spacing:1px; color:var(--ink-dim); text-align:center;}
   /* データ量メーター+ニキシー管タイマー */
   .estRow{display:flex; gap:10px; align-items:stretch;}
@@ -598,7 +597,7 @@
     </div>
 
     <!-- 操作部 -->
-    <label>送信速度(短点長)</label>
+    <label>送信速度(短点長)── ダイヤルを回して選択</label>
     <div class="dialRow">
       <div class="dial" id="bpsDial" title="クリックで切替"><div class="dialKnob" id="dialKnob"></div></div>
       <div class="bpsLamps">
@@ -1264,11 +1263,19 @@ document.addEventListener('pointerdown', e => {
   // 入力欄・文字入力キー・「アルファベット→カナ」トグルの操作は入力モードを維持
   if (t.closest('#txScreen') || t.closest('#txEdit') ||
       (t.closest('.check') && t.closest('.check').contains($('kanaMode')))) return;
-  // 実際の操作要素(ボタン・つまみ・スイッチ類)に触れたときだけ解除する。
-  // 筐体の余白や文字などをうっかりクリックしても解除しない
-  const ctl = t.closest('button, input, select, .bpsOpt, .dial, .modeSwitch, summary, a');
-  if (!ctl) return;
-  setEditMode(false);
+  // 実際の操作要素(ボタン・つまみ・スイッチ類)に触れたときだけ解除する
+  const ctl = t.closest('button, input, select, textarea, .dial, summary, a');
+  if (ctl) { setEditMode(false); return; }
+  // 筐体の余白・ラベル文字・表示ランプなど非操作領域:
+  // 既定動作を止めてフォーカス(カーソル)を保持し、入力モードを継続する
+  e.preventDefault();
+}, true);
+// 非操作領域のクリックで入力欄からフォーカスが外れた場合は書き戻す
+document.addEventListener('mousedown', e => {
+  if (!editMode) return;
+  const t = e.target;
+  if (t.closest('#txScreen') || t.closest('button, input, select, textarea, .dial, summary, a')) return;
+  e.preventDefault();
 }, true);
 setEditMode(false);
 
@@ -1311,7 +1318,7 @@ function setUnit(v) {
   document.querySelectorAll('.bpsOpt').forEach(o => o.classList.toggle('sel', +o.dataset.v === v));
   updateEstimate();
 }
-document.querySelectorAll('.bpsOpt').forEach(o => o.addEventListener('click', () => setUnit(+o.dataset.v)));
+// 速度の変更はダイヤルのみ。ランプ表示はクリックできない(表示専用)
 $('bpsDial').onclick = () => {
   const i = UNIT_VALUES.indexOf(+$('txRate').value);
   setUnit(UNIT_VALUES[(i + 1) % UNIT_VALUES.length]);
