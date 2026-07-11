@@ -256,6 +256,8 @@
   #liveLine{white-space:nowrap; overflow:hidden;}          /* テープ式: 古い文字は右端から流れ落ちる */
   #liveLine .liveSeg{}
   #liveLine .prov{color:#4a7a52;}                          /* 暫定(照合1周のみ)は淡色 */
+  #liveLine .ambi{color:#4a7a52; border-bottom:1px dotted #4a7a52;}  /* 小書き復元の保留語 */
+  #liveLine .ambiWord{cursor:pointer;}
   #liveLine .tapeSep{color:#2f4d2c; margin:0 2px;}
   #liveLine .fix{background:rgba(77,255,122,.3); border-radius:2px; animation:gfix 1.6s ease-out;}
   @keyframes gfix{0%{background:rgba(77,255,122,.65);} 100%{background:rgba(77,255,122,.3);}}
@@ -412,6 +414,7 @@
         <li>受信側の速度設定は不要(冒頭のVVVから短点長を自動測定)</li>
         <li>淡色の文字は暫定です。リピート送信の周回照合(2周一致)で本来色に確定し、3周以降は多数決で訂正されます</li>
         <li>濁点・半濁点は独立符号のため、表示が一瞬「カ→ガ」のように化けるのは正常です</li>
+        <li>小書き(キョ等)は並字(キヨ)で届き、受信側が文脈で復元します。点線の語は推定保留 ── タップで候補が切り替わります。「符号」表示なら復元前の真の受信内容を確認できます</li>
         <li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます。file://直開きでは動かない環境があります</li>
       </ul>
     </details>
@@ -611,6 +614,70 @@ const FC = (() => {
   function estimateSeconds(units, unitMs) {
     return units * unitMs / 1000 + 1.6;   // リードイン込み概算
   }
+
+  /* ---------- 小書き復元器(受信側・完全オフライン) ----------
+   * 並字化された受信カナ列から小書き文字を文脈推定で復元する独立モジュール。
+   * 方針「送信は歴史準拠、受信は現代的に賢く」。
+   * 将来オンデバイスAI(Chrome Prompt API等)へ差し替える場合はこの口だけを
+   * 置き換える。現時点では外部依存ゼロ(ルール+内蔵ミニ辞書)を厳守。
+   * 復元はすべて同字数の置換(ヨ→ョ, ツ→ッ)なので周回照合セルと1:1対応する */
+  const Restore = (() => {
+    const IDAN = 'キシチニヒミリギジヂビピ';
+    const SMALLY = { 'ヤ': 'ャ', 'ユ': 'ュ', 'ヨ': 'ョ' };
+    /* 促音・複合の頻出語ミニ辞書(並字形→復元形・同字数) */
+    const DICT = {
+      'チヨツト':'チョット','ヤツパリ':'ヤッパリ','ヤツト':'ヤット','ズツト':'ズット',
+      'モツト':'モット','キツト':'キット','サツキ':'サッキ','ハツキリ':'ハッキリ',
+      'ビツクリ':'ビックリ','ユツクリ':'ユックリ','マツスグ':'マッスグ',
+      'マツテ':'マッテ','マツタ':'マッタ','イツテ':'イッテ','イツタ':'イッタ',
+      'カツテ':'カッテ','カツタ':'カッタ','ヨカツタ':'ヨカッタ','ワカツタ':'ワカッタ',
+      'アツタ':'アッタ','ダツタ':'ダッタ','ナツタ':'ナッタ','ノツテ':'ノッテ',
+      'シツテ':'シッテ','シツタ':'シッタ','ガンバツテ':'ガンバッテ','ガンバツタ':'ガンバッタ',
+      'テツダツテ':'テツダッテ','イツシヨ':'イッショ','イツシヨウ':'イッショウ',
+      'イツパイ':'イッパイ','ゼツタイ':'ゼッタイ','ケツコウ':'ケッコウ','ケツコン':'ケッコン',
+      'ケツカ':'ケッカ','シツパイ':'シッパイ','シユツパツ':'シュッパツ','シユツチヨウ':'シュッチョウ',
+      'ハツピヨウ':'ハッピョウ','ザツシ':'ザッシ','ガツコウ':'ガッコウ','ガツキ':'ガッキ',
+      'ニツキ':'ニッキ','ミツカ':'ミッカ','ヨツカ':'ヨッカ','キツプ':'キップ','キツテ':'キッテ',
+      'セツト':'セット','ネツト':'ネット','カツト':'カット','カツプ':'カップ','コツプ':'コップ',
+      'マツプ':'マップ','アツプ':'アップ','トツプ':'トップ','ストツプ':'ストップ',
+      'シヨツプ':'ショップ','ポツプ':'ポップ','スポツト':'スポット','チケツト':'チケット',
+      'ラケツト':'ラケット','ロケツト':'ロケット','ロボツト':'ロボット','ポケツト':'ポケット',
+      'ジヤケツト':'ジャケット','ペツト':'ペット','ベツド':'ベッド','バツグ':'バッグ',
+      'バツテリー':'バッテリー','サツカー':'サッカー','キツク':'キック','ロツク':'ロック',
+      'ラツキー':'ラッキー','クツキー':'クッキー','スイツチ':'スイッチ','タツチ':'タッチ',
+      'マツチ':'マッチ','サンドイツチ':'サンドイッチ','メツセージ':'メッセージ',
+      'マツサージ':'マッサージ','シヤツ':'シャツ','ニツポン':'ニッポン','サツポロ':'サッポロ',
+      'ホツカイドウ':'ホッカイドウ','ロツポンギ':'ロッポンギ','グツズ':'グッズ'
+    };
+    /* 並字表記のままの語義も持つ曖昧語(拗音復元を保留して文脈判定) */
+    const AMBI = new Set(['キヨウ', 'シヨウ', 'リヨウ', 'ビヨウ', 'ヒヤク', 'シヤ', 'リユウ', 'ジユウ']);
+    function yoon(w) {                 // 拗音復元ルール: イ段+ヤユヨ → 小書き化
+      let out = '';
+      for (let i = 0; i < w.length; i++) {
+        const c = w[i], n = w[i + 1];
+        if (IDAN.includes(c) && SMALLY[n]) { out += c + SMALLY[n]; i++; }
+        else out += c;
+      }
+      return out;
+    }
+    function restoreWord(w, next) {    // → {text, conf, alt}
+      if (!w) return { text: w, conf: true, alt: null };
+      if (DICT[w]) return { text: DICT[w], conf: true, alt: null };
+      const restored = yoon(w);
+      if (restored === w) return { text: w, conf: true, alt: null };   // 拗音なし
+      if (AMBI.has(w)) {
+        // 共起ルール(簡易バイグラム): 後続語の型で判定
+        if (next && /イ$/.test(next)) return { text: restored, conf: true, alt: null }; // 用言(形容詞) → 拗音
+        if (next === 'ナ') return { text: w, conf: true, alt: null };  // な形容詞の型 → 並字のまま
+        return { text: restored, conf: false, alt: w };                // 判定保留 → タップで切替
+      }
+      return { text: restored, conf: true, alt: null };
+    }
+    function restoreWords(words) {
+      return words.map((w, i) => restoreWord(w, words[i + 1] || null));
+    }
+    return { restoreWords, yoon, DICT, AMBI };
+  })();
 
   /* ---------- 復調器(パルス幅復調+周回冗長) ----------
    * feed(tMs, luma) を毎フレーム呼ぶ。短点長はVVVから自動測定。
@@ -851,7 +918,7 @@ const FC = (() => {
   return { WABUN, INTL, PRO, WABUN_REV, INTL_REV,
            hiraToKata, isKana, decomposeKana, morseOf, displayCells, R2K,
            buildItems, itemsToSeq, buildTx, buildSkSeq, estimateSeconds,
-           Demodulator };
+           Restore, Demodulator };
 })();
 if (typeof module !== 'undefined') module.exports = FC;
 /* ==== MABATAKI SIGNAL CORE END ==== */
@@ -1201,13 +1268,66 @@ function setMode(m) {
   $('modeRaw').classList.toggle('active', m === 'raw');
   renderMonitor();
 }
+let liveToggles = {};                        // 曖昧語のタップ切替状態(受信中電文)
 $('rxReset').onclick = () => {
   tapeMsgs.length = 0;
-  rxCells = []; prevCells = [];
+  rxCells = []; prevCells = []; liveToggles = {};
   demod.clearMessage();
   $('rxInfo').textContent = '';
   renderMonitor();
 };
+
+/* セル列を語単位で描画: カナ表示では小書き復元(Restore)を適用。
+ * 復元確信度が低い語は点線の暫定色になり、タップで候補が切り替わる。
+ * 「符号」表示は復元前の真の受信内容の確認手段として機能する */
+function renderCellSeg(cells, toggles, onTap, prevC) {
+  const seg = document.createElement('span');
+  const cellCls = (i, extra) => {
+    let cls = cells[i].st === 'conf' ? '' : 'prov';
+    if (prevC && prevC[i] && prevC[i].ch !== cells[i].ch) cls += ' fix';  // 多数決訂正
+    if (extra) cls += ' ' + extra;
+    return cls.trim();
+  };
+  if (dispMode === 'raw') {                  // モールス符号列(復元前)
+    for (let i = 0; i < cells.length; i++) {
+      const sp = document.createElement('span');
+      const cls = cellCls(i, '');
+      if (cls) sp.className = cls;
+      sp.textContent = FC.morseOf(cells[i].ch) + ' ';
+      seg.appendChild(sp);
+    }
+    return seg;
+  }
+  const words = cells.map(c => c.ch).join('').split(' ');
+  const rest = FC.Restore.restoreWords(words);
+  let ci = 0;
+  words.forEach((w, k) => {
+    if (k > 0) {                             // 語間スペースのセル
+      const sp = document.createElement('span');
+      const cls = cellCls(ci, '');
+      if (cls) sp.className = cls;
+      sp.textContent = ' ';
+      seg.appendChild(sp); ci++;
+    }
+    const r = rest[k];
+    const disp = (!r.conf && toggles && toggles[k]) ? r.alt : r.text;
+    const wordSpan = document.createElement('span');
+    if (!r.conf && onTap) {
+      wordSpan.className = 'ambiWord';
+      wordSpan.title = '小書き復元の推定保留 ── タップで候補切替';
+      wordSpan.onclick = () => onTap(k);
+    }
+    for (let j = 0; j < w.length; j++) {
+      const sp = document.createElement('span');
+      const cls = cellCls(ci, r.conf ? '' : 'ambi');
+      if (cls) sp.className = cls;
+      sp.textContent = (disp && disp[j]) || w[j];
+      wordSpan.appendChild(sp); ci++;
+    }
+    seg.appendChild(wordSpan);
+  });
+  return seg;
+}
 
 /* 受信モニタ: 紙テープ式。受信中の電文は左端で成長し、確定電文は右へ。
  * 暫定(照合1周のみ)の文字は淡色、周回一致で本来色に昇格。
@@ -1216,17 +1336,8 @@ function renderMonitor() {
   const el = $('liveLine');
   el.innerHTML = '';
   if (rxCells.length) {
-    const seg = document.createElement('span');
-    for (let i = 0; i < rxCells.length; i++) {
-      const c = rxCells[i];
-      const sp = document.createElement('span');
-      let cls = c.st === 'conf' ? '' : 'prov';
-      if (prevCells[i] && prevCells[i].ch !== c.ch) cls += ' fix';   // 多数決訂正
-      if (cls.trim()) sp.className = cls.trim();
-      sp.textContent = dispMode === 'raw' ? FC.morseOf(c.ch) + ' ' : c.ch;
-      seg.appendChild(sp);
-    }
-    el.appendChild(seg);
+    el.appendChild(renderCellSeg(rxCells, liveToggles,
+      k => { liveToggles[k] = !liveToggles[k]; renderMonitor(); }, prevCells));
   }
   const cur = document.createElement('span');
   cur.className = 'cur'; cur.innerHTML = '&nbsp;';
@@ -1235,11 +1346,9 @@ function renderMonitor() {
     const sep = document.createElement('span');
     sep.className = 'tapeSep'; sep.textContent = ' ◇ ';
     el.appendChild(sep);
-    const seg = document.createElement('span');
-    seg.textContent = dispMode === 'raw'
-      ? m.cells.map(c => FC.morseOf(c.ch)).join(' ')
-      : m.text;
-    el.appendChild(seg);
+    if (!m.toggles) m.toggles = {};
+    el.appendChild(renderCellSeg(m.cells, m.toggles,
+      k => { m.toggles[k] = !m.toggles[k]; renderMonitor(); }, null));
   }
   prevCells = rxCells.slice();
 }
@@ -1259,8 +1368,9 @@ function onDemodEvent(ev) {
   } else if (ev.type === 'cycle') {
     $('rxInfo').textContent = `周回${ev.n}を受信 ── 位置照合中(本来色=確定/淡色=暫定) ・ ${timeStamp()}`;
   } else if (ev.type === 'final') {
-    tapeMsgs.unshift({ cells: ev.cells, text: ev.text });
+    tapeMsgs.unshift({ cells: ev.cells, text: ev.text, toggles: {} });
     if (tapeMsgs.length > 20) tapeMsgs.pop();
+    liveToggles = {};
     const allConf = ev.cells.every(c => c.st === 'conf');
     $('rxInfo').textContent = (ev.reason === 'sk' ? '✓ 受信終了(SK受信)' : '□ 信号断のため保存') +
       (allConf ? ' ── 周回一致で確定済み' : ' ── 暫定文字を含む(照合1周のみ)') + ' ・ ' + timeStamp();
