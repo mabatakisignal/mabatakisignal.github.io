@@ -152,12 +152,16 @@
     align-items:stretch; flex-wrap:wrap;}
   .pb{display:flex; flex-direction:column; align-items:center; gap:7px;}
   /* 操作グループ(筐体印字の枠): 送信=赤 / 受信=青緑 */
-  .pbGroup{position:relative; display:flex; gap:20px; padding:16px 18px 12px;
+  .pbGroup{position:relative; display:flex; gap:16px; padding:16px 18px 12px;
     border:2px solid #a33326; border-radius:12px;}
+  /* 各ボタン列を等幅にしてラベル長に関わらず間隔を均等に */
+  .pbGroup .pb{flex:1 1 0; min-width:72px;}
   .pbGroup.rx{border-color:#1d7a72;}
   .pbGroupLabel{position:absolute; top:-9px; left:14px; padding:0 7px;
     font-size:10px; letter-spacing:3px; color:#a33326; background:#9db6a8;
     text-shadow:0 1px 0 rgba(255,255,255,.6);}
+  /* 電源は単独ボタンなので、ラベルをボタンの正中線に揃える */
+  .powerBox .pbGroupLabel{left:50%; transform:translateX(-50%); white-space:nowrap;}
   .pbGroup.rx .pbGroupLabel{color:#1d7a72;}
   .lamp.cyan.on{background:#3fe0d0; border-color:#12615a; box-shadow:0 0 9px rgba(63,224,208,.95);}
   .pushBtn{width:56px; height:56px; border-radius:50%; border:1px solid #4a6159; cursor:pointer;
@@ -475,7 +479,7 @@
         <span class="pbGroupLabel">送 信</span>
         <div class="pb"><span class="lamp" id="lampPop"></span>
           <button class="pushBtn amber" id="popOpen" title="別ウィンドウの発光面を開く"></button>
-          <span class="pbLabel">送信ウィンドウ</span></div>
+          <span class="pbLabel">送信窓</span></div>
         <div class="pb"><span class="lamp red" id="lampTx"></span>
           <button class="pushBtn red" id="txStart" title="送信開始(もう一度押すと停止)"></button>
           <span class="pbLabel">送 信</span></div>
