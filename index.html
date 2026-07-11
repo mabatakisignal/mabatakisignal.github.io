@@ -79,6 +79,10 @@
     background:radial-gradient(circle at 35% 30%, #6a675e, #3a382f 60%, #22201a);
     box-shadow:0 5px 0 #15140f, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25);}
   .pushBtn.dark:active{transform:translateY(4px); box-shadow:0 1px 0 #15140f;}
+  .pushBtn.green{border-color:#155a28;
+    background:radial-gradient(circle at 35% 30%, #8ae89e, #2f9a4e 60%, #155a28);
+    box-shadow:0 5px 0 #155a28, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);}
+  .pushBtn.green:active{transform:translateY(4px); box-shadow:0 1px 0 #155a28;}
   .pbLabel{font-size:11px; letter-spacing:2px; color:var(--ink);}
   /* 表示ランプ */
   .lamp{width:11px; height:11px; border-radius:50%; background:#8a877e; border:1px solid #5c594f;
@@ -245,6 +249,17 @@
   .diag .good{color:var(--ok);} .diag .warn{color:var(--warn);} .diag .bad{color:var(--err);}
   .status{display:flex; align-items:center; gap:8px; margin-top:10px; font-size:13px;
     letter-spacing:1px; color:var(--ink);}
+  /* ステータス表示器(可変テキストはCRTに組み込む) */
+  #statScreen{padding:10px 13px; min-height:78px; overflow:hidden; white-space:nowrap;
+    font-size:11.5px; letter-spacing:1px; line-height:1.9; color:#4a7a52;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
+    border:3px solid var(--bezel); outline:1px solid #8f8c83; border-radius:10px;
+    box-shadow:inset 0 0 20px rgba(0,0,0,.9), inset 0 0 24px rgba(77,255,122,.06), 0 1px 0 rgba(255,255,255,.55);}
+  #statScreen .status{margin-top:0; color:#8affa8; font-size:12.5px;
+    text-shadow:0 0 6px rgba(77,255,122,.4);}
+  #statScreen .statLine{color:#4a7a52; font-size:11px; letter-spacing:.5px;}
   .dot{width:9px; height:9px; border-radius:50%; background:#8f8c83; flex:none;
     box-shadow:inset 0 1px 2px rgba(0,0,0,.5);}
   .dot.idle{background:#8f8c83;}
@@ -324,10 +339,10 @@
           <span class="pbLabel">停 止</span></div>
       </div>
       <div class="pb pbSolo"><span class="lamp green" id="lampRx"></span>
-        <button class="pushBtn blue" id="rxKey" title="カメラ起動/停止"></button>
+        <button class="pushBtn green" id="rxKey" title="カメラ起動/停止"></button>
         <span class="pbLabel">受 信</span></div>
     </div>
-    <div class="fieldHint" style="text-align:center">停止=停止ボタン/送信ボタン再押し/発光面クリック(SKを打って停止)。受信はもう一度押すと停止。</div>
+    <div class="fieldHint" style="text-align:center">停止=停止ボタン/送信ボタン再押し/発光面クリック(即時停止)。受信はもう一度押すと停止。</div>
     <div class="warnBox"><span class="warnTri">⚠</span>
       <div class="warnTxt"><b>送信中は点滅する画面を直視しないでください。</b>
       全画面の明滅は目の負担が大きく、光の点滅に敏感な方は発作等を誘発するおそれがあります。</div></div>
@@ -388,9 +403,13 @@
         <div><span class="dv" id="dgBits">–</span><span class="dl">受信符号</span></div>
       </div>
     </div>
-    <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
-    <div class="small" id="camInfo"></div>
-    <div class="small" id="dbg"></div>
+    <div class="bezel" style="margin-top:10px">
+      <div id="statScreen">
+        <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
+        <div class="statLine" id="camInfo"></div>
+        <div class="statLine" id="dbg"></div>
+      </div>
+    </div>
 
     <!-- 操作部 -->
     <label>送信速度(短点長)</label>
@@ -1177,7 +1196,7 @@ $('manualOpen').onclick = () => {
 '<li><b>送信ボタン(赤)</b>: 全画面で発光開始。<b>送信ウィンドウ</b>を先に開いておくと別窓で発光し、手元の操作パネルは生きたまま</li>' +
 '<li><b>速度ダイヤル</b>: 短点の長さ(150/100/70/50ms)。遠距離ほど長く、近距離は短く高速に。50msは受信側に60fpsカメラが必要</li>' +
 '<li><b>リピート送信</b>: VVV→CT→本文→ARを繰り返し送信。受信側の周回照合(誤り訂正)が働くため推奨</li>' +
-'<li>停止は<b>停止ボタン</b>・送信ボタンの再押し・発光面クリックのいずれでも ── 手続き符号<b>SK</b>を打ってから止まります</li>' +
+'<li>停止は<b>停止ボタン</b>・送信ボタンの再押し・発光面クリックのいずれでも<b>即時</b>に止まります(1回送信の末尾には終了符号SKが自動付与)</li>' +
 '<li>ビーコン音は明滅と同期した電信音。クロックの乱れを耳で検知できます</li>' +
 '</ul>' +
 '<div class="warn"><b>⚠ 送信中は点滅する画面を直視しないでください。</b>' +
@@ -1268,7 +1287,7 @@ $('txStart').onclick = async () => {
   const caf = usePop ? popWin.cancelAnimationFrame.bind(popWin) : cancelAnimationFrame;
 
   let t0 = performance.now();
-  let seqCur = seq, loopCur = loop, coda = false;
+  let seqCur = seq, loopCur = loop;
   let cycle = 0, stopped = false;
   const totalPerCycle = seq.length + gapLen;
   const dataStart = LEAD;
@@ -1303,7 +1322,7 @@ $('txStart').onclick = async () => {
     $('nxTime').textContent = rem >= 100 ? String(Math.round(rem)) : rem.toFixed(1);
 
     // UI重畳はリードイン(無信号の黒)中のみ。データ送出中は完全に非表示
-    if (!coda && idx < dataStart) setInfo(true, usePop
+    if (idx < dataStart) setInfo(true, usePop
       ? '⚠ 画面を直視しないでください ── クリックで停止'
       : '⚠ 画面を直視しないでください ── タップで停止');
     else setInfo(false);
@@ -1313,32 +1332,22 @@ $('txStart').onclick = async () => {
   txTimer = raf(frame);
   if (usePop) watch = setInterval(() => { if (popWin.closed && !stopped) stopTx(); }, 400);
 
-  function requestStop() {
-    // 停止時は手続き符号SKを打ってから止める。コーダ中の再要求は即時停止
-    if (coda || stopped) { stopTx(); return; }
-    coda = true;
-    loopCur = false;
-    seqCur = [0, 0, 0].concat(FC.buildSkSeq());
-    t0 = performance.now();
-    cycle = 0;
-    $('lampStop').classList.add('on');
-  }
-  txStopFn = requestStop;
-
-  function stopTx() {
+  function stopTx() {                // 即時停止(1操作で確実に止める)
+    if (stopped) return;
     stopped = true;
     try { caf(txTimer); } catch (e) {}
     if (watch) clearInterval(watch);
     beacon.off();
     $('lampTx').classList.remove('on');
-    $('lampStop').classList.remove('on');
+    $('lampStop').classList.add('on');                       // 停止確認ランプ(短時間)
+    setTimeout(() => $('lampStop').classList.remove('on'), 900);
     txRunning = false;
     txStopFn = null;
     updateEstimate();               // ニキシー管を推定表示に戻す
     if (usePop) {
       if (popWin && !popWin.closed) {
         popBody.style.background = '#000';
-        setInfo(true, '停止しました(SK送出済み)── 送信ボタンで再開');
+        setInfo(true, '停止しました ── 送信ボタンで再開');
         popBody.onclick = null;
       }
     } else {
@@ -1349,8 +1358,9 @@ $('txStart').onclick = async () => {
     }
     try { wakeLock?.release(); } catch (e) {}
   }
-  if (usePop) popBody.onclick = requestStop;
-  else flash.onclick = requestStop;
+  txStopFn = stopTx;
+  if (usePop) popBody.onclick = stopTx;
+  else flash.onclick = stopTx;
 };
 
 /* ================= 受信 ================= */
