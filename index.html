@@ -305,6 +305,11 @@
     color:var(--ink); border:1px solid var(--plate-edge); border-radius:6px; cursor:pointer;
     background:linear-gradient(180deg,#f2f0ea,#d5d2c9); box-shadow:0 2px 0 var(--plate-edge);}
   .miniKey:active{transform:translateY(2px); box-shadow:none;}
+  /* CRT内リセットキー(メインスクリーン右下) */
+  .crtKey{position:absolute; right:10px; bottom:10px; z-index:4;
+    background:linear-gradient(180deg,#3a3628,#221f16); color:#ffb000;
+    border-color:#5c4a24; box-shadow:0 2px 0 #15140f; opacity:.85;}
+  .crtKey:hover{opacity:1;}
   /* 確定層: 紙テープ */
   #msgs{margin-top:12px;}
   .tape{position:relative; background:var(--paper); color:var(--paper-ink);
@@ -356,14 +361,12 @@
           <span class="pbLabel">トーン</span></div>
       </div>
     </div>
-    <div class="fieldHint" style="text-align:center">停止=停止ボタン/送信ボタン再押し/発光面クリック(即時停止)。受信はもう一度押すと停止。
-      トーン=受信した明滅を電信音で再生(受信中のみ)。</div>
     <div class="warnBox"><span class="warnTri">⚠</span>
       <div class="warnTxt"><b>送信中は点滅する画面を直視しないでください。</b>
       全画面の明滅は目の負担が大きく、光の点滅に敏感な方は発作等を誘発するおそれがあります。</div></div>
 
     <!-- メインCRT: 通常=電文入力 / 受信中=カメラモニタ -->
-    <label>メインスクリーン ── 電文入力/受信中はカメラモニタ</label>
+    <label>メインスクリーン ── 電文入力／カメラモニタ</label>
     <div class="bezel">
       <div class="crt" id="mainCrt">
         <div id="txScreen">
@@ -373,6 +376,7 @@
           <video id="video" autoplay playsinline muted></video>
           <canvas id="roiCanvas"></canvas>
         </div>
+        <button class="miniKey crtKey" id="txReset" title="入力した電文を消去">リセット</button>
       </div>
     </div>
     <div class="ctlRow">
@@ -381,14 +385,12 @@
       <div><label>カメラズーム(受信 ── 対応機種のみ)</label>
         <input type="range" id="zoom" min="1" max="8" step="0.1" value="1" disabled></div>
     </div>
-    <div class="fieldHint">電文は<b>分かち書き</b>で入力します ── 1単語=1マス、リターンで次のマスへ。
-      使える文字はカタカナ・英数字・ー・?。詳しくは「取扱説明書」を参照。</div>
-    <div class="check"><input type="checkbox" id="kanaMode" checked><span>ローマ字→カナ自動変換(英字をそのまま打つときはOFF)</span></div>
+    <div class="check"><input type="checkbox" id="kanaMode" checked><span>アルファベット→カナ</span></div>
 
     <!-- 受信モニタ(紙テープ式・保持) -->
     <div class="liveWrap">
       <div class="liveLabelRow">
-        <label style="margin:0">受信モニタ ── 新しい文字は右から/電文の区切りは /(リセットまで保持)</label>
+        <label style="margin:0">受信モニタ</label>
         <div style="display:flex; gap:8px; align-items:center">
           <div class="modeSwitch">
             <button id="modeKana" class="active">カナ</button>
@@ -996,6 +998,13 @@ function gatherWords() {
   return [...fieldsEl.querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean);
 }
 
+/* 電文リセット(メインスクリーン右下) */
+$('txReset').onclick = () => {
+  fieldsEl.innerHTML = '';
+  makeField().focus();
+  updateEstimate();
+};
+
 function updateEstimate() {
   const words = gatherWords();
   const unitMs = +$('txRate').value;
@@ -1106,9 +1115,9 @@ setInterval(() => {
   $('lampPop').classList.toggle('on', !!(popWin && !popWin.closed));
 }, 800);
 
-/* ---- 取扱説明書(別ウィンドウ・図解付き) ---- */
+/* ---- 取扱説明書(別ウィンドウ・筐体図解付き) ---- */
 $('manualOpen').onclick = () => {
-  const w = window.open('', 'mabatakiManual', 'width=580,height=800,menubar=no,toolbar=no');
+  const w = window.open('', 'mabatakiManual', 'width=640,height=860,menubar=no,toolbar=no');
   if (!w) { showHint('ポップアップがブロックされました。ブラウザの設定で許可してください'); return; }
   const d = w.document;
   d.open();
@@ -1119,81 +1128,139 @@ $('manualOpen').onclick = () => {
 'h1{font-size:17px;letter-spacing:3px;border-bottom:3px double #3a3020;padding-bottom:8px;}' +
 'h1 small{font-size:10px;letter-spacing:1px;}' +
 'h2{font-size:14px;letter-spacing:2px;margin:26px 0 8px;border-left:6px solid #3a3020;padding-left:9px;}' +
-'ul{padding-left:20px;margin:6px 0;} li{margin:3px 0;}' +
+'ul{padding-left:20px;margin:6px 0;} li{margin:4px 0;}' +
 'b{background:rgba(58,48,32,.1);padding:0 3px;}' +
-'.fig{display:block;margin:10px auto;background:#f2ecd8;border:1px solid #8a7a58;border-radius:4px;}' +
-'.cap{text-align:center;font-size:10.5px;color:#6b5a3a;margin-top:-4px;}' +
+'.fig{display:block;margin:12px auto 4px;background:#f2ecd8;border:1px solid #8a7a58;border-radius:4px;}' +
+'.cap{text-align:center;font-size:10.5px;color:#6b5a3a;margin:0 0 8px;}' +
 '.warn{border:2px solid #8a1d10;color:#8a1d10;padding:8px 12px;border-radius:4px;margin:14px 0;}' +
+'table{border-collapse:collapse;width:100%;margin:8px 0;font-size:12px;}' +
+'th,td{border:1px solid #a89870;padding:5px 8px;text-align:left;vertical-align:top;}' +
+'th{background:#d8cfae;width:8.5em;}' +
+'.k{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;margin-right:5px;border:1px solid #6b5a3a;}' +
 '</style></head><body>' +
 '<h1>▚ MABATAKI SIGNAL <small>取扱説明書 ── by TELEPHONOVISION</small></h1>' +
-'<p>画面の明滅で電文を送る可視光通信機です。符号は和文モールス(英数字は国際モールス)、' +
-'誤りはリピート送信の周回照合で正します。</p>' +
+'<p>画面の明滅で電文を送る可視光通信機です。カタカナは可逆ローマ字に変換して<b>国際モールス</b>で送信し、' +
+'受信側でカナに復元します。誤りはリピート送信の周回照合(周回冗長)で正します。</p>' +
 
-'<h2>1. 電文の入力(分かち書き)</h2>' +
-'<p>電文は<b>分かち書き</b>で入力します。<b>1単語=1マス</b>とし、単語ごとに<b>リターン</b>を押すと次のマスが生まれます。</p>' +
-'<svg class="fig" width="480" height="96" viewBox="0 0 480 96" xmlns="http://www.w3.org/2000/svg">' +
-'<rect x="12" y="18" width="120" height="44" rx="5" fill="#1a150a" stroke="#8a7a58"/>' +
-'<text x="72" y="46" fill="#ffd060" font-size="18" text-anchor="middle" font-family="monospace">ヤマ</text>' +
-'<text x="150" y="46" font-size="15" fill="#3a3020" text-anchor="middle">⏎</text>' +
-'<rect x="168" y="18" width="120" height="44" rx="5" fill="#1a150a" stroke="#8a7a58"/>' +
-'<text x="228" y="46" fill="#ffd060" font-size="18" text-anchor="middle" font-family="monospace">ネコ</text>' +
-'<text x="306" y="46" font-size="15" fill="#3a3020" text-anchor="middle">⏎</text>' +
-'<rect x="324" y="18" width="120" height="44" rx="5" fill="#1a150a" stroke="#8a7a58" stroke-dasharray="4 3"/>' +
-'<text x="384" y="46" fill="#8a7a58" font-size="14" text-anchor="middle" font-family="monospace">(次のマス)</text>' +
-'<text x="240" y="86" font-size="11" fill="#6b5a3a" text-anchor="middle">単語の区切りはマスで表す ── 語間ギャップとして送信される</text>' +
+'<h2>1. 各部の名称</h2>' +
+'<svg class="fig" width="560" height="440" viewBox="0 0 560 440" xmlns="http://www.w3.org/2000/svg">' +
+// 筐体
+'<rect x="8" y="8" width="544" height="424" rx="7" fill="#cbc8bf" stroke="#8f8c83"/>' +
+'<circle cx="20" cy="20" r="3" fill="#8a877e"/><circle cx="540" cy="20" r="3" fill="#8a877e"/>' +
+'<circle cx="20" cy="420" r="3" fill="#8a877e"/><circle cx="540" cy="420" r="3" fill="#8a877e"/>' +
+'<text x="24" y="34" font-size="11" fill="#22201a" letter-spacing="2">MABATAKI SIGNAL</text>' +
+// 送信グループ
+'<rect x="70" y="52" width="176" height="72" rx="8" fill="none" stroke="#a33326" stroke-width="1.5"/>' +
+'<text x="82" y="50" font-size="9" fill="#a33326">送 信</text>' +
+'<circle cx="102" cy="86" r="15" fill="#e8c46a" stroke="#7a5a10"/><text x="102" y="112" font-size="8" fill="#3a3831" text-anchor="middle">送信ウィンドウ</text>' +
+'<circle cx="158" cy="86" r="15" fill="#d9553c" stroke="#6e150c"/><text x="158" y="112" font-size="8" fill="#3a3831" text-anchor="middle">送 信</text>' +
+'<circle cx="214" cy="86" r="15" fill="#4a483f" stroke="#15140f"/><text x="214" y="112" font-size="8" fill="#3a3831" text-anchor="middle">停 止</text>' +
+// 受信グループ
+'<rect x="300" y="52" width="126" height="72" rx="8" fill="none" stroke="#1d7a72" stroke-width="1.5"/>' +
+'<text x="312" y="50" font-size="9" fill="#1d7a72">受 信</text>' +
+'<circle cx="334" cy="86" r="15" fill="#4bb46a" stroke="#155a28"/><text x="334" y="112" font-size="8" fill="#3a3831" text-anchor="middle">受 信</text>' +
+'<circle cx="392" cy="86" r="15" fill="#4d8fd6" stroke="#123a6e"/><text x="392" y="112" font-size="8" fill="#3a3831" text-anchor="middle">トーン</text>' +
+'<text x="448" y="90" font-size="8" fill="#6b675c">① ボタン部</text>' +
+// 警告板
+'<rect x="70" y="134" width="356" height="26" rx="3" fill="#eadfba" stroke="#6b675c"/>' +
+'<rect x="70" y="134" width="356" height="6" fill="#f5b400"/><rect x="70" y="154" width="356" height="6" fill="#f5b400"/>' +
+'<text x="248" y="152" font-size="9" fill="#8a1d10" text-anchor="middle">⚠ 送信中は画面を直視しない</text>' +
+// メインスクリーン
+'<rect x="70" y="172" width="356" height="104" rx="8" fill="#161207" stroke="#23231f" stroke-width="3"/>' +
+'<rect x="84" y="184" width="90" height="26" rx="3" fill="none" stroke="#ffb000" stroke-dasharray="3 2"/>' +
+'<text x="129" y="202" font-size="11" fill="#ffd060" text-anchor="middle">ヤマ</text>' +
+'<rect x="182" y="184" width="90" height="26" rx="3" fill="none" stroke="#5c4a24" stroke-dasharray="3 2"/>' +
+'<rect x="368" y="252" width="50" height="16" rx="3" fill="#2a2618" stroke="#5c4a24"/>' +
+'<text x="393" y="264" font-size="8" fill="#ffb000" text-anchor="middle">リセット</text>' +
+'<text x="448" y="222" font-size="8" fill="#6b675c">② メイン</text>' +
+'<text x="448" y="236" font-size="8" fill="#6b675c">   スクリーン</text>' +
+// 受信モニタ
+'<rect x="70" y="288" width="356" height="52" rx="8" fill="#0d1a0c" stroke="#23231f" stroke-width="3"/>' +
+'<text x="84" y="312" font-size="11" fill="#8affa8">ヤマ ネコ / テスト</text>' +
+'<text x="84" y="330" font-size="7" fill="#3f6a47">12:34:56 周回2 照合中</text>' +
+'<text x="448" y="316" font-size="8" fill="#6b675c">③ 受信モニタ</text>' +
+// 計器
+'<rect x="70" y="352" width="170" height="40" rx="6" fill="#0d1408" stroke="#23231f" stroke-width="2"/>' +
+'<path d="M100 386 L118 362" stroke="#8affa8" stroke-width="2"/><text x="155" y="378" font-size="8" fill="#4a7a52">波形/メーター</text>' +
+'<rect x="256" y="352" width="170" height="40" rx="6" fill="#0d1408" stroke="#23231f" stroke-width="2"/>' +
+'<text x="341" y="376" font-size="8" fill="#4dff7a" text-anchor="middle">コントラスト/fps/状態/符号</text>' +
+'<text x="448" y="376" font-size="8" fill="#6b675c">④ 計器類</text>' +
+// ダイヤル/ニキシー
+'<circle cx="100" cy="418" r="12" fill="#b5b2a8" stroke="#6f6c63"/><path d="M100 418 L100 409" stroke="#f2efe6" stroke-width="2"/>' +
+'<text x="150" y="421" font-size="8" fill="#3a3831">速度ダイヤル</text>' +
+'<rect x="256" y="406" width="170" height="24" rx="4" fill="#1c0d04" stroke="#23231f" stroke-width="2"/>' +
+'<text x="341" y="422" font-size="10" fill="#ff9b4a" text-anchor="middle">006 字   13.1 SEC</text>' +
+'<text x="448" y="422" font-size="8" fill="#6b675c">⑤ 設定/計時</text>' +
 '</svg>' +
-'<ul>' +
-'<li>使える文字: <b>カタカナ・英数字・ー・?</b>(漢字・スペースは不可。ひらがなは自動でカタカナ化)</li>' +
-'<li>ローマ字直接入力で即カタカナ表示(WATASHI→ワタシ)。英単語を打つときは「自動変換」をOFF</li>' +
-'<li>カタカナは可逆ローマ字(ん=NN・っ=子音重複など)に変換して国際モールスで送信し、受信側でカナに復元。拗音・促音(キョ・ッ等)も正確に伝わります</li>' +
-'<li>英字を含む語は文字種から自動判別し、英字マーカー(*)付きで送信 ── 受信側は無変換で表示</li>' +
-'<li>空のマスでバックスペース → 前のマスに戻る(マス削除)</li>' +
-'</ul>' +
+'<p class="cap">操作パネル各部(実機の配置に対応)</p>' +
 
-'<h2>2. 送信</h2>' +
-'<ul>' +
-'<li><b>送信ボタン(赤)</b>: 全画面で発光開始。<b>送信ウィンドウ</b>を先に開いておくと別窓で発光し、手元の操作パネルは生きたまま</li>' +
-'<li><b>速度ダイヤル</b>: 短点の長さ(150/100/70/50ms)。遠距離ほど長く、近距離は短く高速に。50msは受信側に60fpsカメラが必要</li>' +
-'<li><b>リピート送信</b>: VVV→CT→本文→ARを繰り返し送信。受信側の周回照合(誤り訂正)が働くため推奨</li>' +
-'<li>停止は<b>停止ボタン</b>・送信ボタンの再押し・発光面クリックのいずれでも<b>即時</b>に止まります(1回送信の末尾には終了符号SKが自動付与)</li>' +
-'<li>ビーコン音は明滅と同期した電信音。クロックの乱れを耳で検知できます</li>' +
-'</ul>' +
+'<h2>2. ボタン部 ①</h2>' +
+'<table>' +
+'<tr><th><span class="k" style="background:#e8c46a"></span>送信ウィンドウ</th>' +
+'<td>発光専用の別ウィンドウを開きます。開いた状態で送信すると<b>別窓が光り</b>、操作パネルは手元で使えます。開かずに送信すれば全画面が光ります。</td></tr>' +
+'<tr><th><span class="k" style="background:#d9553c"></span>送 信</th>' +
+'<td>発光開始。もう一度押すと停止します。上のランプは送信中に赤く点灯。</td></tr>' +
+'<tr><th><span class="k" style="background:#4a483f"></span>停 止</th>' +
+'<td>送信を<b>即時停止</b>します(発光面のクリックでも停止)。</td></tr>' +
+'<tr><th><span class="k" style="background:#4bb46a"></span>受 信</th>' +
+'<td>カメラを起動し、メインスクリーンがカメラモニタに変わります。もう一度押すと停止。</td></tr>' +
+'<tr><th><span class="k" style="background:#4d8fd6"></span>トーン</th>' +
+'<td>受信した明滅を<b>電信音で再生</b>します(受信中のみ)。音の乱れで読み取りの不安定さが耳で分かります。</td></tr>' +
+'</table>' +
 '<div class="warn"><b>⚠ 送信中は点滅する画面を直視しないでください。</b>' +
 '光の点滅に敏感な方は発作等を誘発するおそれがあります。画面は伏せ、状態はビーコン音で確認を。</div>' +
 
-'<h2>3. 受信</h2>' +
-'<p><b>受信ボタン(青)</b>でメインスクリーンがカメラモニタに切り替わります。' +
-'<b>白いROI枠の中に送信画面だけが収まる</b>よう、枠のドラッグ・ROIサイズ・ズームを調整してください。</p>' +
-'<svg class="fig" width="480" height="150" viewBox="0 0 480 150" xmlns="http://www.w3.org/2000/svg">' +
-'<rect x="20" y="10" width="440" height="120" rx="8" fill="#101410" stroke="#8a7a58"/>' +
-'<rect x="60" y="30" width="130" height="80" fill="#232a23"/>' +
-'<rect x="95" y="45" width="60" height="50" fill="#fff"/>' +
-'<rect x="85" y="38" width="80" height="64" fill="none" stroke="#7dff8a" stroke-width="2" stroke-dasharray="6 4"/>' +
-'<text x="255" y="60" font-size="12" fill="#7dff8a">← ROI枠(白/緑)</text>' +
-'<text x="255" y="80" font-size="11" fill="#9aa89a">枠内=送信画面だけ。周囲の景色を</text>' +
-'<text x="255" y="96" font-size="11" fill="#9aa89a">含めない。カメラは三脚等で固定</text>' +
-'<text x="240" y="145" font-size="11" fill="#6b5a3a" text-anchor="middle">カメラモニタの見え方(イメージ)</text>' +
+'<h2>3. メインスクリーン ② ── 電文入力</h2>' +
+'<p>電文は<b>分かち書き</b>で入力します。<b>1単語=1マス</b>、単語ごとに<b>リターン</b>で次のマスが生まれます。' +
+'右下の<b>リセット</b>で入力内容を消去できます。受信中はこの画面がカメラモニタになります。</p>' +
+'<ul>' +
+'<li>使える文字: <b>カタカナ・英数字・ー・?</b>(漢字・スペースは不可。ひらがなは自動でカタカナ化)</li>' +
+'<li><b>アルファベット→カナ</b>がONだと、打ったローマ字が即カタカナになります(WATASHI→ワタシ)。英単語をそのまま送るときはOFFに</li>' +
+'<li>カタカナは可逆ローマ字(ん=NN、っ=子音重複、ー=ハイフン)に変換して送信 ── <b>拗音・促音(キョ・ッ)も正確に伝わります</b></li>' +
+'<li>英字を含む語は自動判別され、英字マーカー(*)付きで送信。受信側は無変換で表示します</li>' +
+'<li>空のマスでバックスペース → 前のマスに戻る(マス削除)</li>' +
+'</ul>' +
+
+'<h2>4. 受信モニタ ③</h2>' +
+'<ul>' +
+'<li>新しい文字は<b>右から</b>現れ、古い文字は左へ流れて消えます。電文の区切りは「 / 」</li>' +
+'<li><b>淡色</b>=暫定(照合1周のみ)。リピート送信の<b>周回照合で一致すると本来色に確定</b>。3周目以降は多数決で訂正(訂正文字は一瞬ハイライト)</li>' +
+'<li>1回送信では照合できないため暫定色のまま ── 誤りが混じり得ます</li>' +
+'<li>表示切替: <b>カナ</b>(復元後)/<b>ローマ字</b>(伝送された原文)/<b>符号</b>(モールス ・−)</li>' +
+'<li>下段は状態表示(周回数・受信終了など)。<b>リセット</b>を押すまで内容は保持されます</li>' +
+'</ul>' +
+
+'<h2>5. 計器類 ④</h2>' +
+'<ul>' +
+'<li><b>シグナルメーター/波形</b>: 明滅が2値にくっきり分かれ、針が振れていれば受信可能圏内</li>' +
+'<li><b>コントラスト</b>: 8以上で検出可、40以上が良好。<b>fps</b>: カメラの実測。<b>状態</b>: 待機→校正中→同期OK→受信中</li>' +
+'<li>ROIサイズ・カメラズームのつまみで、<b>白枠の中に送信画面だけ</b>が入るよう調整します</li>' +
+'</ul>' +
+'<svg class="fig" width="420" height="120" viewBox="0 0 420 120" xmlns="http://www.w3.org/2000/svg">' +
+'<rect x="10" y="8" width="400" height="104" rx="6" fill="#101410" stroke="#8a7a58"/>' +
+'<rect x="46" y="26" width="120" height="70" fill="#232a23"/>' +
+'<rect x="78" y="42" width="56" height="40" fill="#fff"/>' +
+'<rect x="68" y="34" width="76" height="54" fill="none" stroke="#7dff8a" stroke-width="2" stroke-dasharray="6 4"/>' +
+'<text x="220" y="48" font-size="11" fill="#7dff8a">← ROI枠</text>' +
+'<text x="220" y="68" font-size="10" fill="#9aa89a">枠内に送信画面だけを収める</text>' +
+'<text x="220" y="86" font-size="10" fill="#9aa89a">カメラは三脚等で固定する</text>' +
 '</svg>' +
+'<p class="cap">カメラモニタでのROI合わせ</p>' +
+
+'<h2>6. 設定・計時 ⑤</h2>' +
 '<ul>' +
-'<li>受信側の速度設定は不要 ── 冒頭のVVVから短点長を自動測定します</li>' +
-'<li>波形が2値にくっきり分かれ、針が振れていれば受信可能圏内</li>' +
-'<li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます</li>' +
+'<li><b>速度ダイヤル</b>: モールス短点の長さ(150/100/70/50ms)。遠距離ほど長く、近距離は短く高速に。50msは受信側に60fpsカメラが必要</li>' +
+'<li><b>リピート送信</b>: 周回冗長による誤り訂正が働くため、基本はONを推奨</li>' +
+'<li><b>ビーコン音</b>: 送信の明滅と同期した電信音</li>' +
+'<li><b>ニキシー管</b>: 電文の字数と所要秒数。送信中は残り時間をカウントダウン</li>' +
 '</ul>' +
 
-'<h2>4. 表示の見方</h2>' +
-'<ul>' +
-'<li><b>淡色</b>=暫定(照合1周のみ)。リピートの周回照合で一致すると<b>本来色</b>=確定に昇格</li>' +
-'<li>3周以降は多数決で訂正され、訂正文字は一瞬ハイライト</li>' +
-'<li>1回送信では照合できないため暫定色のまま ── 誤りが混じり得る点に注意</li>' +
-'<li>「ローマ字」トグルで伝送された原文、「符号」トグルでモールス(・−表記)を確認できます</li>' +
-'<li>モニタはリセットボタンを押すまで保持されます</li>' +
-'</ul>' +
-
-'<h2>5. 距離を伸ばすコツ</h2>' +
+'<h2>7. 距離を伸ばすコツ</h2>' +
 '<ul>' +
 '<li>送信画面の<b>輝度を最大</b>にし、自動輝度・ナイトシフト・省電力をOFF</li>' +
 '<li><b>OLED端末が有利</b>(黒=画素消灯)。直射日光下は不利 ── 夕方以降〜夜間が本領</li>' +
 '<li>画面を受信カメラへ正対させ、送受とも固定。遠距離は短点150msで</li>' +
+'<li>カメラはhttps(またはlocalhost)で開いたときのみ使用できます</li>' +
 '</ul>' +
 '</body></html>');
   d.close();
