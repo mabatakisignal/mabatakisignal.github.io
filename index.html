@@ -50,8 +50,15 @@
   header h1 .tag{font-size:9px; letter-spacing:2px; color:#45423a; vertical-align:middle; font-style:italic;}
   header p{margin:8px 0 0 2px; color:var(--ink-dim); font-size:10.5px; letter-spacing:1px;}
   /* 丸押しボタン+ランプ */
-  .pbRow{display:flex; gap:24px; justify-content:center; margin-top:16px;}
+  .pbRow{display:flex; gap:22px; justify-content:center; margin-top:16px; align-items:stretch; flex-wrap:wrap;}
   .pb{display:flex; flex-direction:column; align-items:center; gap:7px;}
+  /* 送信グループ(筐体印字の赤枠) */
+  .pbGroup{position:relative; display:flex; gap:20px; padding:16px 18px 12px;
+    border:2px solid #a33326; border-radius:12px;}
+  .pbGroupLabel{position:absolute; top:-9px; left:14px; padding:0 7px;
+    font-size:10px; letter-spacing:3px; color:#a33326; background:#d0cdc5;
+    text-shadow:0 1px 0 rgba(255,255,255,.6);}
+  .pbSolo{padding:16px 6px 12px;}
   .pushBtn{width:56px; height:56px; border-radius:50%; border:1px solid #6f6c63; cursor:pointer;
     background:radial-gradient(circle at 35% 30%, #f6f4ee, #c6c3ba 60%, #a19e95);
     box-shadow:0 5px 0 #8a877e, 0 6px 10px rgba(0,0,0,.3), inset 0 1px 0 #fff;}
@@ -64,6 +71,14 @@
     background:radial-gradient(circle at 35% 30%, #7ab4f2, #2a63b0 60%, #143a72);
     box-shadow:0 5px 0 #123a6e, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);}
   .pushBtn.blue:active{transform:translateY(4px); box-shadow:0 1px 0 #123a6e;}
+  .pushBtn.amber{border-color:#7a5a10;
+    background:radial-gradient(circle at 35% 30%, #ffdf8a, #d09a1e 60%, #7a5a10);
+    box-shadow:0 5px 0 #7a5a10, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.5);}
+  .pushBtn.amber:active{transform:translateY(4px); box-shadow:0 1px 0 #7a5a10;}
+  .pushBtn.dark{border-color:#15140f;
+    background:radial-gradient(circle at 35% 30%, #6a675e, #3a382f 60%, #22201a);
+    box-shadow:0 5px 0 #15140f, 0 6px 10px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.25);}
+  .pushBtn.dark:active{transform:translateY(4px); box-shadow:0 1px 0 #15140f;}
   .pbLabel{font-size:11px; letter-spacing:2px; color:var(--ink);}
   /* 表示ランプ */
   .lamp{width:11px; height:11px; border-radius:50%; background:#8a877e; border:1px solid #5c594f;
@@ -295,18 +310,24 @@
 <main>
   <section class="panel">
     <!-- 操作ボタン(最上段) -->
-    <div class="pbRow" style="margin-top:4px">
-      <div class="pb"><span class="lamp" id="lampPop"></span>
-        <button class="pushBtn" id="popOpen" title="別ウィンドウの発光面を開く"></button>
-        <span class="pbLabel">送信ウィンドウ</span></div>
-      <div class="pb"><span class="lamp red" id="lampTx"></span>
-        <button class="pushBtn red" id="txStart" title="送信開始"></button>
-        <span class="pbLabel">送 信</span></div>
-      <div class="pb"><span class="lamp green" id="lampRx"></span>
+    <div class="pbRow" style="margin-top:8px">
+      <div class="pbGroup">
+        <span class="pbGroupLabel">送 信</span>
+        <div class="pb"><span class="lamp" id="lampPop"></span>
+          <button class="pushBtn amber" id="popOpen" title="別ウィンドウの発光面を開く"></button>
+          <span class="pbLabel">送信ウィンドウ</span></div>
+        <div class="pb"><span class="lamp red" id="lampTx"></span>
+          <button class="pushBtn red" id="txStart" title="送信開始(もう一度押すと停止)"></button>
+          <span class="pbLabel">送 信</span></div>
+        <div class="pb"><span class="lamp" id="lampStop"></span>
+          <button class="pushBtn dark" id="stopKey" title="送信停止(SKを打って停止)"></button>
+          <span class="pbLabel">停 止</span></div>
+      </div>
+      <div class="pb pbSolo"><span class="lamp green" id="lampRx"></span>
         <button class="pushBtn blue" id="rxKey" title="カメラ起動/停止"></button>
         <span class="pbLabel">受 信</span></div>
     </div>
-    <div class="fieldHint" style="text-align:center">発光面のクリックで停止(SK送出)。受信はもう一度押すと停止。</div>
+    <div class="fieldHint" style="text-align:center">停止=停止ボタン/送信ボタン再押し/発光面クリック(SKを打って停止)。受信はもう一度押すと停止。</div>
     <div class="warnBox"><span class="warnTri">⚠</span>
       <div class="warnTxt"><b>送信中は点滅する画面を直視しないでください。</b>
       全画面の明滅は目の負担が大きく、光の点滅に敏感な方は発作等を誘発するおそれがあります。</div></div>
@@ -737,9 +758,10 @@ const FC = (() => {
         this.lastEdgeT = tEdge;
       } else if (this.bin === 0 && this.u) {
         // エッジ待ちの暗期間: 文字/語/周回の境界を即時確定
+        // 語間判定は文字間(3u)と語間(7u)の中点4.5u(暗区間は実測が短めに出るため)
         const off = t - this.lastEdgeT;
         if (!this.charClosed && off > 2.2 * this.u) this._closeChar();
-        if (this.state === 'body' && !this.spaceEmitted && off > 5.5 * this.u) this._emitSpace();
+        if (this.state === 'body' && !this.spaceEmitted && off > 4.5 * this.u) this._emitSpace();
         if (this.state === 'body' && off > 14 * this.u && this.current.length) this._endCycle();
       }
       this.lastCross = { t, l: luma };
@@ -764,8 +786,13 @@ const FC = (() => {
         this.charClosed = false;
       } else {                                 // 暗期間 → ギャップ分類
         if (!this.u) return;
+        if (dur > 0.5 * this.u && dur < 1.6 * this.u) {
+          // 符号内ギャップ(1u)からも短点長を学習: 明期間だけで学習すると
+          // 実測バイアスでuが長めに偏り、語間判定を取り逃すため両側から補正
+          this.u = 0.92 * this.u + 0.08 * dur;
+        }
         if (dur >= 2 * this.u && !this.charClosed) this._closeChar();
-        if (dur >= 5.5 * this.u && this.state === 'body' && !this.spaceEmitted) this._emitSpace();
+        if (dur >= 4.5 * this.u && this.state === 'body' && !this.spaceEmitted) this._emitSpace();
       }
     }
 
@@ -921,6 +948,7 @@ function showHint(msg) {
 /* ================= 送信: 1単語1入力欄(頼信紙) ================= */
 const fieldsEl = $('wordFields');
 let txTimer = null, wakeLock = null, txRunning = false;   // 送信状態(先頭で宣言: TDZ回避)
+let txStopFn = null;                                      // 実行中送信の停止要求(SKコーダ)
 
 /* ローマ字→カナ 逐次変換(入力補助 ── ヘボン式等のゆらぎも受理)
  * 伝送用の厳密な1対1変換表(コア側)とは別物。表示・入力の利便のためのゆるい変換 */
@@ -1149,7 +1177,7 @@ $('manualOpen').onclick = () => {
 '<li><b>送信ボタン(赤)</b>: 全画面で発光開始。<b>送信ウィンドウ</b>を先に開いておくと別窓で発光し、手元の操作パネルは生きたまま</li>' +
 '<li><b>速度ダイヤル</b>: 短点の長さ(150/100/70/50ms)。遠距離ほど長く、近距離は短く高速に。50msは受信側に60fpsカメラが必要</li>' +
 '<li><b>リピート送信</b>: VVV→CT→本文→ARを繰り返し送信。受信側の周回照合(誤り訂正)が働くため推奨</li>' +
-'<li>停止は発光面をクリック ── 手続き符号<b>SK</b>を打ってから止まります</li>' +
+'<li>停止は<b>停止ボタン</b>・送信ボタンの再押し・発光面クリックのいずれでも ── 手続き符号<b>SK</b>を打ってから止まります</li>' +
 '<li>ビーコン音は明滅と同期した電信音。クロックの乱れを耳で検知できます</li>' +
 '</ul>' +
 '<div class="warn"><b>⚠ 送信中は点滅する画面を直視しないでください。</b>' +
@@ -1196,7 +1224,10 @@ $('manualOpen').onclick = () => {
 };
 
 /* ---- 送信実行(モールス・パルス幅変調) ---- */
+$('stopKey').onclick = () => { if (txRunning && txStopFn) txStopFn(); };
+
 $('txStart').onclick = async () => {
+  if (txRunning) { if (txStopFn) txStopFn(); return; }   // 再押しで停止(SK送出)
   const words = gatherWords();
   const unitMs = +$('txRate').value;
   const loop = $('txLoop').checked;
@@ -1283,14 +1314,16 @@ $('txStart').onclick = async () => {
   if (usePop) watch = setInterval(() => { if (popWin.closed && !stopped) stopTx(); }, 400);
 
   function requestStop() {
-    // 停止時は手続き符号SKを打ってから止める。コーダ中の再タップは即時停止
+    // 停止時は手続き符号SKを打ってから止める。コーダ中の再要求は即時停止
     if (coda || stopped) { stopTx(); return; }
     coda = true;
     loopCur = false;
     seqCur = [0, 0, 0].concat(FC.buildSkSeq());
     t0 = performance.now();
     cycle = 0;
+    $('lampStop').classList.add('on');
   }
+  txStopFn = requestStop;
 
   function stopTx() {
     stopped = true;
@@ -1298,7 +1331,9 @@ $('txStart').onclick = async () => {
     if (watch) clearInterval(watch);
     beacon.off();
     $('lampTx').classList.remove('on');
+    $('lampStop').classList.remove('on');
     txRunning = false;
+    txStopFn = null;
     updateEstimate();               // ニキシー管を推定表示に戻す
     if (usePop) {
       if (popWin && !popWin.closed) {
