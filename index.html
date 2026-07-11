@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>MABATAKI SIGNAL by TELEPHONOVISION</title>
 <style>
+/* 8ビット風ドットマトリクスフォント(5x7)をWOFFで埋め込み。
+   英数記号のみ収録・約2.4KB。どの環境でも同一の字形で表示される */
+@font-face{
+  font-family:'MabatakiDot';
+  src:url(data:font/woff;base64,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) format('woff');
+  font-weight:normal; font-style:normal; font-display:block;
+}
+</style>
+<style>
   :root{
     /* 国鉄色: 筐体=灰緑色1号(148/174/160) 背景=灰緑色3号(59/98/90) */
     --wood1:#3b625a; --wood2:#2e4e47;          /* 背景(灰緑色3号) */
@@ -16,8 +25,8 @@
     --red1:#df5340; --red2:#ab2c1a;
     --paper:#e8dfc0; --paper-ink:#3a3020;
     --mono:"Courier New",ui-monospace,SFMono-Regular,Menlo,Consolas,"Osaka-Mono","MS Gothic",monospace;
-    /* CRT表示用: どの環境でも同じ等幅で出るスタックのみを使用 */
-    --crtfont:"Courier New",monospace;
+    /* CRT表示用: 埋め込み8ビット風フォント(英数記号)。日本語は等幅にフォールバック */
+    --crtfont:'MabatakiDot',"Courier New",monospace;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; color:var(--ink); font-family:var(--mono);}
@@ -36,9 +45,18 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.75), inset 0 -2px 4px rgba(0,0,0,.22);}
   .glow{text-shadow:0 0 7px currentColor;}
   /* CRT文字: 昔のデジタル表示風(等幅・角ばった字面・字間広め・にじみ) */
-  .wordInput, #liveLine, #rxInfo, #statScreen, .diag .dv, .diag .dl{
-    font-family:var(--crtfont); font-weight:700; font-stretch:condensed;
+  .wordInput, #liveLine{
+    font-family:var(--crtfont); letter-spacing:2px;
     -webkit-font-smoothing:none; font-smooth:never;}
+  /* 受信系CRT(英字のみ)は8ビット風フォントで統一 */
+  #rxInfo, #statScreen, #statScreen *, .diag .dv, .diag .dl{
+    font-family:'MabatakiDot',"Courier New",monospace; font-weight:normal;
+    letter-spacing:1px; -webkit-font-smoothing:none; font-smooth:never;}
+  #statScreen .status{font-size:13px; letter-spacing:1.5px;}
+  #statScreen .statLine{font-size:10.5px;}
+  #rxInfo{font-size:10px; letter-spacing:1px;}
+  .diag .dv{font-size:18px; letter-spacing:1.5px;}
+  .diag .dl{font-size:9px; letter-spacing:1px;}
 
   /* ===== 主電源 ===== */
   .powerBox{display:flex; flex-direction:column; align-items:center; gap:7px;
@@ -530,15 +548,15 @@
     </div>
     <div class="bezel" style="margin-top:10px">
       <div class="diag">
-        <div><span class="dv" id="dgContrast">–</span><span class="dl">コントラスト</span></div>
-        <div><span class="dv" id="dgFps">–</span><span class="dl">カメラfps</span></div>
-        <div><span class="dv" id="dgState">–</span><span class="dl">状態</span></div>
-        <div><span class="dv" id="dgBits">–</span><span class="dl">受信符号</span></div>
+        <div><span class="dv" id="dgContrast">–</span><span class="dl">CONTRAST</span></div>
+        <div><span class="dv" id="dgFps">–</span><span class="dl">CAM FPS</span></div>
+        <div><span class="dv" id="dgState">–</span><span class="dl">STATE</span></div>
+        <div><span class="dv" id="dgBits">–</span><span class="dl">CHARS</span></div>
       </div>
     </div>
     <div class="bezel" style="margin-top:10px">
       <div id="statScreen" class="crtGlass"><span class="crtInner"></span>
-        <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">待機中</span></div>
+        <div class="status"><span class="dot idle" id="stDot"></span><span id="stText">STANDBY</span></div>
         <div class="statLine" id="camInfo"></div>
         <div class="statLine" id="dbg"></div>
       </div>
@@ -1722,22 +1740,22 @@ function onDemodEvent(ev) {
   if (ev.type === 'status') {
     const dot = $('stDot'), st = $('stText');
     dot.className = 'dot';
-    if (ev.state === 'no_signal') { dot.classList.add('idle'); st.textContent = '待機中(信号なし/コントラスト不足)'; }
-    else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = '信号検出 ── VVVで短点校正中'; }
-    else if (ev.state === 'synced') { dot.classList.add('lock'); st.textContent = `同期OK(短点${Math.round(ev.u || demod.u)}ms)── 本文開始(CT)待ち`; }
-    else if (ev.state === 'body') { dot.classList.add('rx'); st.textContent = '受信中…'; }
+    if (ev.state === 'no_signal') { dot.classList.add('idle'); st.textContent = 'STANDBY - NO SIGNAL'; }
+    else if (ev.state === 'idle') { dot.classList.add('signal'); st.textContent = 'SIGNAL - CALIBRATING (VVV)'; }
+    else if (ev.state === 'synced') { dot.classList.add('lock'); st.textContent = `SYNC OK - DOT ${Math.round(ev.u || demod.u)}MS - WAIT CT`; }
+    else if (ev.state === 'body') { dot.classList.add('rx'); st.textContent = 'RECEIVING...'; }
   } else if (ev.type === 'update') {
     rxCells = ev.cells;
     renderMonitor();
   } else if (ev.type === 'cycle') {
-    $('rxInfo').textContent = `${timeStamp()} 周回${ev.n} 照合中`;
+    $('rxInfo').textContent = `${timeStamp()} CYCLE ${ev.n} - COMPARING`;
   } else if (ev.type === 'final') {
     tapeMsgs.unshift({ cells: ev.cells, text: ev.text });
     if (tapeMsgs.length > 20) tapeMsgs.pop();
     const allConf = ev.cells.every(c => c.st === 'conf');
     $('rxInfo').textContent = `${timeStamp()} ` +
-      (ev.reason === 'sk' ? '受信終了' : '信号断') +
-      (allConf ? ' 確定' : ' 暫定あり');
+      (ev.reason === 'sk' ? 'RX END' : 'SIGNAL LOST') +
+      (allConf ? ' - CONFIRMED' : ' - PROVISIONAL');
     rxCells = []; prevCells = [];
     renderMonitor();
   }
@@ -1797,13 +1815,13 @@ async function applyCameraTuning() {
   try {
     if (caps.exposureMode && caps.exposureMode.includes('manual')) {
       await track.applyConstraints({ advanced: [{ exposureMode: 'manual' }] });
-      notes.push('露出固定: 成功');
+      notes.push('AE LOCK: OK');
     } else if (caps.exposureCompensation) {
-      notes.push('露出固定: 非対応(露出補正のみ対応)');
+      notes.push('AE LOCK: N/A (EV ONLY)');
     } else {
-      notes.push('露出固定: 非対応(差分検出で動作)');
+      notes.push('AE LOCK: N/A');
     }
-  } catch (e) { notes.push('露出固定: 失敗(差分検出で動作)'); }
+  } catch (e) { notes.push('AE LOCK: FAILED'); }
   const z = $('zoom');
   if (caps.zoom && caps.zoom.max > caps.zoom.min) {
     z.min = caps.zoom.min; z.max = caps.zoom.max;
@@ -1812,7 +1830,7 @@ async function applyCameraTuning() {
     z.oninput = () => track.applyConstraints({ advanced: [{ zoom: +z.value }] }).catch(() => {});
   } else {
     z.disabled = true;
-    notes.push('ズーム: 非対応');
+    notes.push('ZOOM: N/A');
   }
   $('camInfo').textContent = notes.join(' / ');
 }
@@ -1865,7 +1883,7 @@ function drawRoiOverlay(luma) {
   ctx.strokeRect(x, y, s, s);
   ctx.fillStyle = 'rgba(138,255,168,.9)';
   ctx.font = `${11 * devicePixelRatio}px monospace`;
-  ctx.fillText(`輝度 ${luma.toFixed(0)}`, x + 4 * devicePixelRatio, y - 6 * devicePixelRatio < 10 ? y + s + 14 * devicePixelRatio : y - 6 * devicePixelRatio);
+  ctx.fillText(`LUMA ${luma.toFixed(0)}`, x + 4 * devicePixelRatio, y - 6 * devicePixelRatio < 10 ? y + s + 14 * devicePixelRatio : y - 6 * devicePixelRatio);
 }
 
 /* ---- サンプリングループ ---- */
@@ -1928,17 +1946,17 @@ function updateDiag() {
   cEl.className = 'dv ' + (c >= demod.MIN_CONTRAST ? (c >= 40 ? 'good' : 'warn') : 'bad');
   $('dgFps').textContent = _fpsTimes.length;
   const st = demod.state;
-  const map = { no_signal: '待機', idle: '校正中', synced: '同期OK', body: '受信中' };
+  const map = { no_signal: 'IDLE', idle: 'CAL', synced: 'SYNC', body: 'RX' };
   const sEl = $('dgState');
   sEl.textContent = map[st] || st;
   sEl.className = 'dv ' + (st === 'body' || st === 'synced' ? 'good' : st === 'idle' ? 'warn' : '');
   $('dgBits').textContent = rxCells.length;
   // 詳細診断(トラブル時の手掛かり)
   $('dbg').textContent =
-    `輝度${Math.round(lastLuma)} 幅${Math.round(demod.range || 0)}` +
-    ` / 標本${demod.samples.length}` +
-    ` / u=${demod.u ? Math.round(demod.u) + 'ms' : '-'}` +
-    ` / 符号[${demod.elems || ''}]` +
+    `LUMA ${Math.round(lastLuma)} RANGE ${Math.round(demod.range || 0)}` +
+    ` / SMP ${demod.samples.length}` +
+    ` / U=${demod.u ? Math.round(demod.u) + 'MS' : '-'}` +
+    ` / CODE[${demod.elems || ''}]` +
     (usingRVFC ? ' / rVFC' : ' / rAF') +
     (loopError ? ` / ERR:${loopError}` : '');
 }
