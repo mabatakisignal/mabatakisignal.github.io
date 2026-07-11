@@ -1200,6 +1200,7 @@ function makeField(val = '') {
   });
   // フォーカス時はCRT内部だけをスクロール(ページ全体が動いてレイアウトがずれるのを防ぐ)
   inp.addEventListener('focus', () => {
+    lastFocusedField = inp;
     const sc = $('txScreen');
     const top = inp.offsetTop, bot = top + inp.offsetHeight;
     if (top < sc.scrollTop) sc.scrollTop = top;
@@ -1213,6 +1214,8 @@ makeField();
 function gatherWords() {
   return [...fieldsEl.querySelectorAll('input')].map(i => i.value.trim()).filter(Boolean);
 }
+
+let lastFocusedField = null;                 // 直近に編集していたマス
 
 /* ---- 入力モード ----
  * メインスクリーンの直接クリック入力は不可。「文字入力」キーで開始し、
@@ -1247,10 +1250,25 @@ $('txReset').onclick = e => {
 // 入力欄・文字入力キー以外を操作したら入力モードを解除
 document.addEventListener('pointerdown', e => {
   if (!editMode) return;
-  if (e.target.closest('#txScreen') || e.target.closest('#txEdit')) return;
+  // 入力欄・文字入力キー・「アルファベット→カナ」トグルの操作は入力モードを維持する
+  if (e.target.closest('#txScreen') || e.target.closest('#txEdit') ||
+      e.target.closest('#kanaMode') || e.target.closest('label[for="kanaMode"]') ||
+      (e.target.closest('.check') && e.target.closest('.check').contains($('kanaMode')))) return;
   setEditMode(false);
 }, true);
 setEditMode(false);
+
+// トグル操作後は入力中のマスへフォーカスを戻す(カーソルが外れないように)
+$('kanaMode').addEventListener('change', () => {
+  if (!editMode) return;
+  const fs = fieldsEl.querySelectorAll('input');
+  const target = lastFocusedField || fs[fs.length - 1];
+  if (target) {
+    try { target.focus({ preventScroll: true }); } catch (e) { target.focus(); }
+    const L = target.value.length;
+    try { target.setSelectionRange(L, L); } catch (e) {}
+  }
+});
 
 function updateEstimate() {
   const words = gatherWords();
