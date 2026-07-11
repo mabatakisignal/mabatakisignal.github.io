@@ -78,11 +78,11 @@
   .crtGlass{position:relative; overflow:hidden;}
   .crtInner{display:none;}
   body.collapsing .crtGlass > *:not(.crtInner){animation:crtBlank .3s ease-in forwards;}
-  body.collapsing canvas.crtGlass, body.collapsing .diag.crtGlass{
-    animation:crtBlank .3s ease-in forwards;}
+  /* 計器窓は枠(ガラス面)を残し、中の表示だけ消す */
+  body.collapsing .diag .dv, body.collapsing .diag .dl{animation:crtBlank .3s ease-in forwards;}
   @keyframes crtBlank{ 0%{opacity:1;} 100%{opacity:0;} }
   body.warming .crtGlass > *:not(.crtInner){animation:crtWarm 1.15s ease-out;}
-  body.warming canvas.crtGlass, body.warming .diag.crtGlass{animation:crtWarm 1.15s ease-out;}
+  body.warming .diag .dv, body.warming .diag .dl{animation:crtWarm 1.15s ease-out;}
   @keyframes crtWarm{
     0%{opacity:0;}
     18%{opacity:.12;}
@@ -525,11 +525,11 @@
             </svg>
           </div>
         </div>
-        <canvas id="wave" class="crtGlass" width="360" height="130"></canvas>
+        <canvas id="wave" width="360" height="130"></canvas>
       </div>
     </div>
     <div class="bezel" style="margin-top:10px">
-      <div class="diag crtGlass">
+      <div class="diag">
         <div><span class="dv" id="dgContrast">–</span><span class="dl">コントラスト</span></div>
         <div><span class="dv" id="dgFps">–</span><span class="dl">カメラfps</span></div>
         <div><span class="dv" id="dgState">–</span><span class="dl">状態</span></div>
@@ -1957,7 +1957,7 @@ function drawVU() {
 function drawWave() {
   const cv = $('wave'), ctx = cv.getContext('2d');
   const S = demod.samples;
-  if (!powerOn) { ctx.fillStyle = '#0a0d0a'; ctx.fillRect(0, 0, cv.width, cv.height); return; }
+  if (!powerOn) { ctx.fillStyle = '#0a0d0a'; ctx.fillRect(0, 0, cv.width, cv.height); return; }  // 面は残し表示のみ消灯
   ctx.fillStyle = '#0d1408'; ctx.fillRect(0, 0, cv.width, cv.height);
   if (S.length < 2) return;
   const t1 = S[S.length - 1].t, t0 = t1 - 4000;
@@ -1981,9 +1981,13 @@ function drawWave() {
     else ctx.lineTo(X(s.t), Y(s.l));
   }
   ctx.stroke();
-  // 走査線
-  ctx.fillStyle = 'rgba(0,0,0,.4)';
-  for (let y = 0; y < cv.height; y += 3) ctx.fillRect(0, y, cv.width, 1);
+  // 走査線(他のCRTと同じ: 濃い黒線+ごく薄い蛍光線の3pxピッチ)
+  for (let y = 0; y < cv.height; y += 3) {
+    ctx.fillStyle = 'rgba(0,0,0,.55)';
+    ctx.fillRect(0, y, cv.width, 1);
+    ctx.fillStyle = 'rgba(77,255,122,.05)';
+    ctx.fillRect(0, y + 1, cv.width, 1);
+  }
 }
 })();
 </script>
