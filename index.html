@@ -79,7 +79,7 @@
   /* ===== 電源OFF: 全モニタ・インジケータ沈黙 ===== */
   /* 消灯時: ブラウン管本来の限りなく暗いグレー+ガラス曲面のハイライト */
   body.off .crt, body.off #rxMonitor, body.off #statScreen,
-  body.off .diag>div, body.off .nixie{
+  body.off .diag>div{
     background:
       radial-gradient(ellipse 70% 55% at 30% 18%, rgba(255,255,255,.075) 0%, rgba(255,255,255,.03) 40%, transparent 72%),
       radial-gradient(ellipse at center, #23262a 0%, #16181b 55%, #101215 100%) !important;
@@ -88,8 +88,11 @@
   body.off canvas#wave{
     box-shadow:inset 0 0 26px rgba(0,0,0,.75), 0 1px 0 rgba(255,255,255,.4) !important;}
   body.off .wordInput, body.off #liveLine, body.off #rxInfo, body.off .diag .dv,
-  body.off .diag .dl, body.off .nx, body.off .nxUnit, body.off #statScreen *{
+  body.off .diag .dl, body.off #statScreen *{
     color:transparent !important; text-shadow:none !important;}
+  /* ニキシー管の消灯: 発光は消えるが、金属の数字は管内にうっすら残る */
+  body.off .nx{color:rgba(190,170,150,.16) !important; text-shadow:none !important;}
+  body.off .nxUnit{color:rgba(190,170,150,.10) !important;}
   /* 物理メーターは消灯しない(文字盤は常に白)。針だけ0位置で静止 */
   body.off .wordInput{border-color:transparent !important; background:transparent !important;}
   body.off .lamp{background:#5a746a !important; box-shadow:inset 0 1px 2px rgba(0,0,0,.5) !important;}
@@ -231,14 +234,39 @@
   .bpsTxt{font-size:10px; line-height:1.4; letter-spacing:1px; color:var(--ink-dim); text-align:center;}
   /* データ量メーター+ニキシー管タイマー */
   .estRow{display:flex; gap:10px; align-items:stretch;}
-  .nixie{flex:1; min-width:0; height:52px; display:flex; align-items:center; justify-content:center; gap:6px;
+  /* ニキシー管: ガラス管+奥の金属メッシュ(アノード)。走査線は無い */
+  .nixie{position:relative; flex:1; min-width:0; height:52px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
     border:2px solid var(--bezel); outline:1px solid #5f7a6e; border-radius:10px;
+    overflow:hidden;
     background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.35) 0 1px, transparent 1px 3px),
-      radial-gradient(ellipse at center, #1c0d04 0%, #0d0602 78%);
-    box-shadow:inset 0 0 12px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.55);}
-  .nx{font-size:21px; font-family:var(--mono); color:#ff9b4a; letter-spacing:2px;
-    text-shadow:0 0 8px rgba(255,120,30,.95), 0 0 16px rgba(255,90,20,.5);}
+      repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 2px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 2px),
+      radial-gradient(ellipse at center, #2a2622 0%, #1a1714 60%, #12100e 100%);
+    box-shadow:inset 0 0 16px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.55);
+    transition:background .55s ease-in-out, box-shadow .55s ease-in-out;}
+  /* ガラス管の映り込み(常に最前面) */
+  .nixie::after{content:''; position:absolute; inset:0; pointer-events:none; z-index:5;
+    background:
+      linear-gradient(105deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 22%, transparent 38%),
+      radial-gradient(ellipse 60% 40% at 28% 14%, rgba(255,255,255,.09), transparent 70%);}
+  /* 通電: 管内がネオンでほんのり暖まる */
+  body:not(.off) .nixie{
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 2px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 2px),
+      radial-gradient(ellipse at center, #3a2418 0%, #1f1510 60%, #140f0c 100%);
+    box-shadow:inset 0 0 16px rgba(0,0,0,.6), inset 0 0 22px rgba(255,120,30,.10),
+      0 1px 0 rgba(255,255,255,.55);}
+  /* 数字: 点灯していない桁は金属ワイヤーのゴーストとして残る */
+  .nxWrap{position:relative; display:inline-block;}
+  .nxGhost{position:absolute; left:0; top:0; z-index:1; pointer-events:none;
+    font-size:21px; font-family:var(--mono); letter-spacing:2px;
+    color:rgba(190,170,150,.13); text-shadow:none; white-space:nowrap;}
+  .nx{position:relative; z-index:2; font-size:21px; font-family:var(--mono);
+    color:#ff9b4a; letter-spacing:2px;
+    text-shadow:0 0 8px rgba(255,120,30,.95), 0 0 16px rgba(255,90,20,.5);
+    transition:color .55s ease-in-out, text-shadow .55s ease-in-out;}
   .nxUnit{font-size:8px; letter-spacing:1px; color:#8a5230;}
   main{padding:12px 0 4px;}
   /* サブプレート(刻印枠) */
@@ -657,8 +685,8 @@
     <label>データ量/送信時間</label>
     <div class="bezel" style="margin-top:4px; padding:9px">
       <div class="estRow">
-        <div class="nixie"><span class="nx" id="nxData">---</span><span class="nxUnit">字</span></div>
-        <div class="nixie"><span class="nx" id="nxTime">--.-</span><span class="nxUnit">SEC</span></div>
+        <div class="nixie"><span class="nxWrap"><span class="nxGhost">888</span><span class="nx" id="nxData">---</span></span><span class="nxUnit">字</span></div>
+        <div class="nixie"><span class="nxWrap"><span class="nxGhost">88.8</span><span class="nx" id="nxTime">--.-</span></span><span class="nxUnit">SEC</span></div>
       </div>
     </div>
     <div class="meta" id="txEstimate"></div>
