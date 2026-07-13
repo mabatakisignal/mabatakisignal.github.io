@@ -101,6 +101,9 @@
 
   /* CRT電源: 点灯=じわりと像が浮かぶ / 消灯=走査線が消えてブランク */
   .crtGlass{position:relative; overflow:hidden;}
+  /* 電源ON/OFF時、CRTの質感(地色・走査線・影)をなめらかに遷移させる */
+  .crt, #rxMonitor, #statScreen, .diag>div, .nixie, .crtGlass::before{
+    transition:background .55s ease-in-out, box-shadow .55s ease-in-out;}
   /* ガラス面の映り込み: 表示内容の「上」に薄く重なる(視認性を損なわない強度) */
   .crtGlass::before{content:''; position:absolute; inset:0; z-index:30; pointer-events:none;
     border-radius:inherit;
@@ -1100,9 +1103,21 @@ const $ = id => document.getElementById(id);
 /* ================= 主電源 ================= */
 let powerOn = false;
 document.body.classList.add('off');              // 既定はOFF(全モニタ沈黙)
+let powerFade = 0;                 // 0=消灯 1=点灯(波形canvasのディゾルブ用)
+let fadeTimer = null;
+function animatePowerFade(target) {
+  if (fadeTimer) clearInterval(fadeTimer);
+  fadeTimer = setInterval(() => {
+    powerFade += (target - powerFade) * 0.18;
+    if (Math.abs(target - powerFade) < 0.01) { powerFade = target; clearInterval(fadeTimer); fadeTimer = null; }
+    try { drawWave(); } catch (e) {}
+  }, 30);
+}
+
 function setPower(on) {
   if (on === powerOn) return;
   powerOn = on;
+  animatePowerFade(on ? 1 : 0);
   $('mainSw').classList.toggle('on', on);
   $('lampPower').classList.toggle('on', on);
   const b = document.body;
@@ -1149,6 +1164,7 @@ function showHint(msg) {
 /* ================= 送信: 1単語1入力欄(頼信紙) ================= */
 const fieldsEl = $('wordFields');
 let txTimer = null, wakeLock = null, txRunning = false;   // 送信状態(先頭で宣言: TDZ回避)
+let waveIdleTimer = null;                                // 波形CRTの常時描画ループ
 let txStopFn = null;                                      // 実行中送信の停止要求(SKコーダ)
 
 /* ローマ字→カナ 逐次変換(入力補助 ── ヘボン式等のゆらぎも受理)
@@ -2114,6 +2130,19 @@ function drawVU() {
   if (n) n.setAttribute('transform', `rotate(${deg.toFixed(1)} 60 88)`);
 }
 
+/* 走査線(全CRT共通のピッチ・強度) */
+function scanlines(ctx, cv) {
+  const scale = cv.height / (cv.clientHeight || cv.height);
+  const pitch = Math.max(2, Math.round(3 * scale));
+  const lw = Math.max(1, Math.round(1 * scale));
+  for (let y = 0; y < cv.height; y += pitch) {
+    ctx.fillStyle = 'rgba(0,0,0,.30)';
+    ctx.fillRect(0, y, cv.width, lw);
+    ctx.fillStyle = 'rgba(77,255,122,.05)';
+    ctx.fillRect(0, y + lw, cv.width, lw);
+  }
+}
+
 /* ガラス面の映り込み(表示内容の上に薄く重ねる) */
 function glassHighlight(ctx, cv, strong) {
   const a = strong ? 0.075 : 0.055, b = strong ? 0.03 : 0.022;
@@ -2126,20 +2155,36 @@ function glassHighlight(ctx, cv, strong) {
   ctx.fillRect(0, 0, cv.width, cv.height);
 }
 
+/* 波形CRTは受信中でなくても面を描画し続ける(初期状態・電源OFF時も質感を保つ) */
+function startWaveIdle() {
+  if (waveIdleTimer) return;
+  const tick = () => {
+    if (!stream) { try { drawWave(); } catch (e) {} }   // 受信中は描画ループ側が描く
+    waveIdleTimer = setTimeout(tick, 250);
+  };
+  tick();
+}
+
 /* ---- 波形表示 ---- */
 function drawWave() {
   const cv = $('wave'), ctx = cv.getContext('2d');
   const S = demod.samples;
-  if (!powerOn) {                                     // 消灯: 極暗グレー+ガラス曲面のハイライト
-    const g = ctx.createRadialGradient(cv.width / 2, cv.height / 2, 10,
-                                       cv.width / 2, cv.height / 2, cv.width * .7);
-    g.addColorStop(0, '#23262a'); g.addColorStop(.55, '#16181b'); g.addColorStop(1, '#101215');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
-    glassHighlight(ctx, cv, true);
+  // 消灯面(管の地色+曲面ハイライト)は常に土台として描く
+  const g = ctx.createRadialGradient(cv.width / 2, cv.height / 2, 10,
+                                     cv.width / 2, cv.height / 2, cv.width * .7);
+  g.addColorStop(0, '#23262a'); g.addColorStop(.55, '#16181b'); g.addColorStop(1, '#101215');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+  const f = powerFade;                              // 0→1 のディゾルブ
+  if (f <= 0.01) { glassHighlight(ctx, cv, true); return; }
+  ctx.save();
+  ctx.globalAlpha = f;                              // 点灯面をフェードイン
+  ctx.fillStyle = '#171a18'; ctx.fillRect(0, 0, cv.width, cv.height);
+  if (S.length < 2) {                               // 未受信でも走査線は出る
+    scanlines(ctx, cv);
+    ctx.restore();
+    glassHighlight(ctx, cv, 1 - f * 0.5);
     return;
   }
-  ctx.fillStyle = '#171a18'; ctx.fillRect(0, 0, cv.width, cv.height);   // 管の地色より暗くしない
-  if (S.length < 2) { glassHighlight(ctx, cv); return; }
   const t1 = S[S.length - 1].t, t0 = t1 - 4000;
   const X = t => (t - t0) / 4000 * cv.width;
   const Y = l => cv.height - 4 - (l / 255) * (cv.height - 8);
@@ -2161,19 +2206,14 @@ function drawWave() {
     else ctx.lineTo(X(s.t), Y(s.l));
   }
   ctx.stroke();
-  // 走査線(他CRTと同一: 黒線1px + 薄い蛍光線1px の3pxピッチ)。
-  // canvasは論理解像度が高いため、CSS表示比率に合わせてピッチを換算する
-  const scale = cv.height / (cv.clientHeight || cv.height);
-  const pitch = Math.max(2, Math.round(3 * scale));
-  const lw = Math.max(1, Math.round(1 * scale));
-  for (let y = 0; y < cv.height; y += pitch) {
-    ctx.fillStyle = 'rgba(0,0,0,.30)';
-    ctx.fillRect(0, y, cv.width, lw);
-    ctx.fillStyle = 'rgba(77,255,122,.05)';
-    ctx.fillRect(0, y + lw, cv.width, lw);
-  }
+  scanlines(ctx, cv);                   // 走査線
+  ctx.restore();
   glassHighlight(ctx, cv);              // ガラスの映り込み(最前面)
 }
+
+/* 初期表示: 電源OFFの管面を描き、以後は常時描画ループで質感を保つ */
+try { drawWave(); } catch (e) {}
+startWaveIdle();
 })();
 </script>
 </body>
