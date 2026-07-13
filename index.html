@@ -1155,7 +1155,7 @@ function setPower(on) {
     try { drawWave(); } catch (e) {}
     setTimeout(() => b.classList.remove('warming'), 1200);
   } else {
-    // 送信・受信を止め、CRTは中心へ光が収束して消える
+    // 送信・受信を止め、CRTを消灯する
     if (txRunning && txStopFn) txStopFn();
     if (stream) stopCamera();
     rxTone.off();
@@ -1163,6 +1163,7 @@ function setPower(on) {
     setTimeout(() => {
       b.classList.remove('collapsing');
       b.classList.add('off');
+      clearRxMonitor();                    // 受信内容も消える(電源が落ちたので保持しない)
       try { drawWave(); } catch (e) {}     // 波形面もブランクに
     }, 320);
   }
@@ -1832,13 +1833,14 @@ function setMode(m) {
   $('modeRaw').classList.toggle('active', m === 'code');
   renderMonitor();
 }
-$('rxReset').onclick = () => {
+function clearRxMonitor() {
   tapeMsgs.length = 0;
   rxCells = []; prevCells = [];
   demod.clearMessage();
   $('rxInfo').textContent = '';
   renderMonitor();
-};
+}
+$('rxReset').onclick = clearRxMonitor;
 
 /* セル列を描画:
  *  カナ    … 語単位でローマ字→カナ復元(*付き英字語・数字語は無変換)。
