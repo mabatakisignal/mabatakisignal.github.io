@@ -77,9 +77,16 @@
   .mainSw.on::before{color:#ffb000; text-shadow:0 0 10px rgba(255,176,0,.95);}
 
   /* ===== 電源OFF: 全モニタ・インジケータ沈黙 ===== */
+  /* 消灯時: ブラウン管本来の限りなく暗いグレー+ガラス曲面のハイライト */
   body.off .crt, body.off #rxMonitor, body.off #statScreen,
-  body.off .diag>div, body.off .nixie, body.off canvas#wave{
-    background:#0a0d0a !important; box-shadow:inset 0 0 22px rgba(0,0,0,.95) !important;}
+  body.off .diag>div, body.off .nixie{
+    background:
+      radial-gradient(ellipse 70% 55% at 30% 18%, rgba(255,255,255,.075) 0%, rgba(255,255,255,.03) 40%, transparent 72%),
+      radial-gradient(ellipse at center, #23262a 0%, #16181b 55%, #101215 100%) !important;
+    box-shadow:inset 0 0 26px rgba(0,0,0,.75), inset 0 -8px 20px rgba(0,0,0,.5),
+      0 1px 0 rgba(255,255,255,.4) !important;}
+  body.off canvas#wave{
+    box-shadow:inset 0 0 26px rgba(0,0,0,.75), 0 1px 0 rgba(255,255,255,.4) !important;}
   body.off .wordInput, body.off #liveLine, body.off #rxInfo, body.off .diag .dv,
   body.off .diag .dl, body.off .nx, body.off .nxUnit, body.off #statScreen *{
     color:transparent !important; text-shadow:none !important;}
@@ -94,6 +101,14 @@
 
   /* CRT電源: 点灯=じわりと像が浮かぶ / 消灯=走査線が消えてブランク */
   .crtGlass{position:relative; overflow:hidden;}
+  /* ガラス面の映り込み: 表示内容の「上」に薄く重なる(視認性を損なわない強度) */
+  .crtGlass::before{content:''; position:absolute; inset:0; z-index:30; pointer-events:none;
+    border-radius:inherit;
+    background:radial-gradient(ellipse 70% 55% at 30% 18%,
+      rgba(255,255,255,.055) 0%, rgba(255,255,255,.022) 40%, transparent 72%);}
+  body.off .crtGlass::before{
+    background:radial-gradient(ellipse 70% 55% at 30% 18%,
+      rgba(255,255,255,.075) 0%, rgba(255,255,255,.03) 40%, transparent 72%);}
   .crtInner{display:none;}
   body.collapsing .crtGlass > *:not(.crtInner){animation:crtBlank .3s ease-in forwards;}
   /* 計器窓は枠(ガラス面)を残し、中の表示だけ消す */
@@ -299,8 +314,8 @@
   /* メインCRT(寸法固定): 電文入力/カメラモニタ兼用 */
   .crt{position:relative; margin-top:6px; height:240px; overflow:hidden;
     background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(255,176,0,.05) 1px 2px, transparent 2px 3px),
-      radial-gradient(ellipse at center, #241b0c 0%, #120e05 78%);
+      repeating-linear-gradient(0deg, rgba(0,0,0,.30) 0 1px, rgba(255,176,0,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #2a2418 0%, #1b1a17 78%);   /* 管の地色より暗くしない */
     border:4px solid var(--bezel); outline:1px solid #5f7a6e; border-radius:14px;
     box-shadow:inset 0 0 28px rgba(0,0,0,.9), inset 0 0 30px rgba(255,176,0,.06), 0 1px 0 rgba(255,255,255,.55);}
   #txScreen{position:absolute; inset:0; overflow-y:auto; padding:13px 12px;
@@ -340,10 +355,30 @@
     background:linear-gradient(180deg,#7f9a8c,#5f7a6e);
     border:1px solid #4a6159;
     box-shadow:0 2px 5px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.4);}
-  #meterFace{width:100%; height:100%; border-radius:50%; overflow:hidden;
-    background:radial-gradient(circle at 40% 32%, #ffffff, #eae7dd 70%, #cfccc0);
+  #meterFace{position:relative; width:100%; height:100%; border-radius:50%; overflow:hidden;
+    background:radial-gradient(circle at 40% 32%, #e8e5da, #d6d3c7 70%, #bcb9ad);
     border:2px solid #2b3d36;
-    box-shadow:inset 0 3px 8px rgba(0,0,0,.28), inset 0 0 20px rgba(255,255,255,.6);}
+    box-shadow:inset 0 3px 8px rgba(0,0,0,.32), inset 0 0 18px rgba(0,0,0,.12);
+    transition:box-shadow .9s ease-out;}
+  /* 照明: ベゼル内側の上部に仕込んだ麦球1個。そこから扇状に光が広がり、
+     文字盤を斜めに照らす(下方・両隅は光が届かず暗く落ちる) */
+  .meterLamp{position:absolute; inset:0; pointer-events:none; opacity:0;
+    transition:opacity 1.1s ease-out;}
+  body:not(.off) .meterLamp{opacity:1;}
+  /* 麦球そのもの(上部ベゼル内側の小さな発光点) */
+  .meterLamp::before{content:''; position:absolute; left:50%; top:5%;
+    width:7px; height:5px; margin-left:-3.5px; border-radius:50%;
+    background:radial-gradient(circle, #fff6dd 0%, #ffd894 55%, #e8a94a 100%);
+    box-shadow:0 0 6px 2px rgba(255,206,130,.9), 0 0 14px 6px rgba(255,190,110,.45);}
+  /* 光の広がり(点光源からの扇状の照射・下へ行くほど減衰) */
+  .meterLamp::after{content:''; position:absolute; inset:0; border-radius:50%;
+    background:
+      radial-gradient(ellipse 58% 74% at 50% 7%,
+        rgba(255,226,168,.75) 0%, rgba(255,215,150,.50) 16%,
+        rgba(255,205,138,.30) 34%, rgba(255,196,126,.13) 54%, transparent 76%);}
+  body:not(.off) #meterFace{
+    box-shadow:inset 0 3px 8px rgba(0,0,0,.22), inset 0 -10px 18px rgba(0,0,0,.14),
+      0 0 8px rgba(255,196,120,.15);}
   #meterFace svg{width:100%; height:100%; display:block;}
   /* 物理針: SVGのtransform属性で回転(CSS transform-originに依存しない)。
      電源OFFでも消えず、0位置で静止する */
@@ -355,8 +390,8 @@
   .diag>div{border:2px solid var(--bezel); outline:1px solid #5f7a6e;
     border-radius:8px; padding:7px 4px; text-align:center;
     background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
-      radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
+      repeating-linear-gradient(0deg, rgba(0,0,0,.30) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #1a2a1c 0%, #171a18 78%);   /* 管の地色より暗くしない */
     box-shadow:inset 0 0 10px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.5);}
   .diag .dv{display:block; font-size:17px; font-weight:700; color:#4dff7a; line-height:1.1;
     text-shadow:0 0 6px rgba(77,255,122,.55);}
@@ -370,8 +405,8 @@
     display:flex; flex-direction:column; justify-content:flex-start;
     font-size:11.5px; letter-spacing:1px; color:#4a7a52;
     background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
-      radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
+      repeating-linear-gradient(0deg, rgba(0,0,0,.30) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #1a2a1c 0%, #171a18 78%);   /* 管の地色より暗くしない */
     border:3px solid var(--bezel); outline:1px solid #5f7a6e; border-radius:10px;
     box-shadow:inset 0 0 20px rgba(0,0,0,.9), inset 0 0 24px rgba(77,255,122,.06), 0 1px 0 rgba(255,255,255,.55);}
   /* 1行目=状態 / 2行目=カメラ情報 / 3行目=診断。各行は高さ固定でレイアウトを動かさない */
@@ -401,8 +436,8 @@
   #rxMonitor{margin-top:5px; padding:12px 13px 9px; height:82px; overflow:hidden;
     display:flex; flex-direction:column; justify-content:space-between;
     background:
-      repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
-      radial-gradient(ellipse at center, #10240f 0%, #071106 78%);
+      repeating-linear-gradient(0deg, rgba(0,0,0,.30) 0 1px, rgba(77,255,122,.05) 1px 2px, transparent 2px 3px),
+      radial-gradient(ellipse at center, #1a2a1c 0%, #171a18 78%);   /* 管の地色より暗くしない */
     border:4px solid var(--bezel); outline:1px solid #5f7a6e; border-radius:14px;
     box-shadow:inset 0 0 28px rgba(0,0,0,.9), inset 0 0 30px rgba(77,255,122,.08), 0 1px 0 rgba(255,255,255,.55);}
   #liveLine{height:30px; font-size:19px; letter-spacing:3px; color:#8affa8; line-height:30px;}
@@ -552,6 +587,7 @@
       <div class="meterRow">
         <div id="meterWin">
           <div id="meterFace">
+            <span class="meterLamp"></span>
             <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
               <path d="M14 88 A46 46 0 0 1 106 88" fill="none" stroke="#2b3d36" stroke-width="1.4"/>
               <g stroke="#2b3d36" stroke-width="1.3">
@@ -1368,7 +1404,8 @@ const rxTone = (() => {
   }
   function toggle() {
     on = !on;
-    if (on) ensure(); else set(0);
+    if (on) ensure();
+    else off();                    // OFF時は即座に消音(set()はonガードで弾かれるため)
     $('lampTone').classList.toggle('on', on);
     return on;
   }
@@ -1377,7 +1414,12 @@ const rxTone = (() => {
     const target = level ? 0.06 : 0;
     if (target !== cur) { cur = target; gain.gain.setTargetAtTime(target, ctx.currentTime, 0.004); }
   }
-  function off() { if (gain && ctx) { cur = 0; gain.gain.setTargetAtTime(0, ctx.currentTime, 0.004); } }
+  function off() {
+    if (!gain || !ctx) return;
+    cur = 0;
+    gain.gain.cancelScheduledValues(ctx.currentTime);
+    gain.gain.setTargetAtTime(0, ctx.currentTime, 0.004);
+  }
   return { toggle, set, off, isOn: () => on };
 })();
 $('toneKey').onclick = () => rxTone.toggle();
@@ -2072,13 +2114,32 @@ function drawVU() {
   if (n) n.setAttribute('transform', `rotate(${deg.toFixed(1)} 60 88)`);
 }
 
+/* ガラス面の映り込み(表示内容の上に薄く重ねる) */
+function glassHighlight(ctx, cv, strong) {
+  const a = strong ? 0.075 : 0.055, b = strong ? 0.03 : 0.022;
+  const h = ctx.createRadialGradient(cv.width * .3, cv.height * .18, 4,
+                                     cv.width * .3, cv.height * .18, cv.width * .5);
+  h.addColorStop(0, `rgba(255,255,255,${a})`);
+  h.addColorStop(.5, `rgba(255,255,255,${b})`);
+  h.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = h;
+  ctx.fillRect(0, 0, cv.width, cv.height);
+}
+
 /* ---- 波形表示 ---- */
 function drawWave() {
   const cv = $('wave'), ctx = cv.getContext('2d');
   const S = demod.samples;
-  if (!powerOn) { ctx.fillStyle = '#0a0d0a'; ctx.fillRect(0, 0, cv.width, cv.height); return; }  // 面は残し表示のみ消灯
-  ctx.fillStyle = '#0d1408'; ctx.fillRect(0, 0, cv.width, cv.height);
-  if (S.length < 2) return;
+  if (!powerOn) {                                     // 消灯: 極暗グレー+ガラス曲面のハイライト
+    const g = ctx.createRadialGradient(cv.width / 2, cv.height / 2, 10,
+                                       cv.width / 2, cv.height / 2, cv.width * .7);
+    g.addColorStop(0, '#23262a'); g.addColorStop(.55, '#16181b'); g.addColorStop(1, '#101215');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, cv.width, cv.height);
+    glassHighlight(ctx, cv, true);
+    return;
+  }
+  ctx.fillStyle = '#171a18'; ctx.fillRect(0, 0, cv.width, cv.height);   // 管の地色より暗くしない
+  if (S.length < 2) { glassHighlight(ctx, cv); return; }
   const t1 = S[S.length - 1].t, t0 = t1 - 4000;
   const X = t => (t - t0) / 4000 * cv.width;
   const Y = l => cv.height - 4 - (l / 255) * (cv.height - 8);
@@ -2100,13 +2161,18 @@ function drawWave() {
     else ctx.lineTo(X(s.t), Y(s.l));
   }
   ctx.stroke();
-  // 走査線(他のCRTと同じ: 濃い黒線+ごく薄い蛍光線の3pxピッチ)
-  for (let y = 0; y < cv.height; y += 3) {
-    ctx.fillStyle = 'rgba(0,0,0,.55)';
-    ctx.fillRect(0, y, cv.width, 1);
+  // 走査線(他CRTと同一: 黒線1px + 薄い蛍光線1px の3pxピッチ)。
+  // canvasは論理解像度が高いため、CSS表示比率に合わせてピッチを換算する
+  const scale = cv.height / (cv.clientHeight || cv.height);
+  const pitch = Math.max(2, Math.round(3 * scale));
+  const lw = Math.max(1, Math.round(1 * scale));
+  for (let y = 0; y < cv.height; y += pitch) {
+    ctx.fillStyle = 'rgba(0,0,0,.30)';
+    ctx.fillRect(0, y, cv.width, lw);
     ctx.fillStyle = 'rgba(77,255,122,.05)';
-    ctx.fillRect(0, y + 1, cv.width, 1);
+    ctx.fillRect(0, y + lw, cv.width, lw);
   }
+  glassHighlight(ctx, cv);              // ガラスの映り込み(最前面)
 }
 })();
 </script>
